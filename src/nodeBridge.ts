@@ -46,6 +46,7 @@ class NodeHandlerRegistry {
   private contextCreateOpts: any;
   private contexts = new Map<string, Context>();
   private abortControllers = new Map<string, AbortController>();
+
   constructor(messageBus: MessageBus, contextCreateOpts: any) {
     this.messageBus = messageBus;
     this.contextCreateOpts = contextCreateOpts;
@@ -1130,6 +1131,77 @@ class NodeHandlerRegistry {
     );
 
     //////////////////////////////////////////////
+    // git operations
+    this.messageBus.registerHandler('git.clone', async (data) => {
+      const { url, destination, taskId } = data;
+      const { cloneRepository } = await import('./utils/git');
+
+      // Set up abort controller for cancellation
+      let abortController: AbortController | undefined;
+      if (taskId) {
+        abortController = new AbortController();
+        this.abortControllers.set(taskId, abortController);
+      }
+
+      try {
+        const result = await cloneRepository({
+          url,
+          destination,
+          signal: abortController?.signal,
+          timeoutMinutes: process.env.GIT_CLONE_TIMEOUT_MINUTES
+            ? Number.parseInt(process.env.GIT_CLONE_TIMEOUT_MINUTES, 10)
+            : 30,
+          onProgress: (progress) => {
+            this.messageBus.emitEvent('git.clone.progress', {
+              taskId,
+              percent: progress.percent,
+              message: progress.message,
+            });
+          },
+        });
+
+        // Wrap result to match expected response format
+        if (result.success) {
+          return {
+            success: true,
+            data: {
+              clonePath: result.clonePath,
+              repoName: result.repoName,
+            },
+          };
+        }
+        return result;
+      } catch (error: any) {
+        // Clean up abort controller in catch block as well (for early returns)
+        if (taskId && this.abortControllers.has(taskId)) {
+          this.abortControllers.delete(taskId);
+        }
+        throw error;
+      } finally {
+        // Clean up abort controller
+        if (taskId && this.abortControllers.has(taskId)) {
+          this.abortControllers.delete(taskId);
+        }
+      }
+    });
+
+    // Cancel git clone operation
+    this.messageBus.registerHandler('git.clone.cancel', async (data) => {
+      const { taskId } = data;
+      const controller = this.abortControllers.get(taskId);
+
+      if (controller) {
+        controller.abort();
+        this.abortControllers.delete(taskId);
+        return { success: true };
+      }
+      return {
+        success: false,
+        error: 'Clone task not found or already completed',
+      };
+    });
+
+    //////////////////////////////////////////////
     // providers
     this.messageBus.registerHandler('providers.list', async (data) => {
       const { cwd } = data;
@@ -1266,10 +1338,12 @@ class NodeHandlerRegistry {
       const resolvedModel =
         // e.g. model from slash command or agent
         model ||
-        (await this.messageBus.messageHandlers.get('session.getModel')?.({
-          cwd,
-          sessionId,
-        }))!.data.model;
+        (
+          await this.messageBus.messageHandlers.get('session.getModel')?.({
+            cwd,
+            sessionId,
+          })
+        )?.data.model;
 
       const abortController = new AbortController();
       const key = buildSignalKey(cwd, project.session.id);
