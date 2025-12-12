@@ -547,10 +547,15 @@ const CommitUI: React.FC<CommitUIProps> = ({ messageBus, cwd, options }) => {
   return (
     <Box flexDirection="column" padding={1}>
       {/* Header */}
-      <Box marginBottom={1}>
+      <Box marginBottom={1} flexDirection="column">
         <Text bold color="cyan">
           🚀 AI Commit Message Generator
         </Text>
+        {options.model && (
+          <Text dimColor>
+            Model: <Text color="yellow">{options.model}</Text>
+          </Text>
+        )}
       </Box>
 
       {/* Validating Phase */}
