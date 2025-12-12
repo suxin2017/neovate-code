@@ -1,91 +1,197 @@
-import {
-  type ExecSyncOptionsWithStringEncoding,
-  execSync,
-} from 'child_process';
 import { execFileNoThrow } from './execFileNoThrow';
 
-export async function getGitStatus(opts: { cwd: string }) {
-  const cwd = opts.cwd;
-  const isGit = await (async () => {
+// ============================================================================
+// Internal Helpers (DRY)
+// ============================================================================
+
+async function gitExec(
+  cwd: string,
+  args: string[],
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  return execFileNoThrow(cwd, 'git', args, undefined, undefined, false);
+}
+
+async function gitCheck(cwd: string, args: string[]): Promise<boolean> {
+  const { code } = await gitExec(cwd, args);
+  return code === 0;
+}
+
+async function gitOutput(cwd: string, args: string[]): Promise<string> {
+  const { stdout } = await gitExec(cwd, args);
+  return stdout.trim();
+}
+
+// ============================================================================
+// Validation Functions
+// ============================================================================
+
+/**
+ * Check if git is installed and available in PATH
+ */
+export async function isGitInstalled(): Promise<boolean> {
+  try {
     const { code } = await execFileNoThrow(
-      cwd,
+      process.cwd(),
       'git',
-      ['rev-parse', '--is-inside-work-tree'],
+      ['--version'],
       undefined,
       undefined,
       false,
     );
     return code === 0;
-  })();
-  if (!isGit) {
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if the given directory is inside a git repository
+ */
+export async function isGitRepository(cwd: string): Promise<boolean> {
+  return gitCheck(cwd, ['rev-parse', '--is-inside-work-tree']);
+}
+
+/**
+ * Check if git user name and email are configured
+ */
+export async function isGitUserConfigured(
+  cwd: string,
+): Promise<{ name: boolean; email: boolean }> {
+  const [nameResult, emailResult] = await Promise.all([
+    gitCheck(cwd, ['config', 'user.name']),
+    gitCheck(cwd, ['config', 'user.email']),
+  ]);
+  return { name: nameResult, email: emailResult };
+}
+
+// ============================================================================
+// Query Functions
+// ============================================================================
+
+/**
+ * Check if there are uncommitted changes (staged or unstaged)
+ */
+export async function hasUncommittedChanges(cwd: string): Promise<boolean> {
+  const output = await gitOutput(cwd, ['status', '--porcelain']);
+  return output.length > 0;
+}
+
+/**
+ * Check if any remote is configured
+ */
+export async function hasRemote(cwd: string): Promise<boolean> {
+  const output = await gitOutput(cwd, ['remote']);
+  return output.length > 0;
+}
+
+/**
+ * Check if a branch exists
+ */
+export async function branchExists(
+  cwd: string,
+  branchName: string,
+): Promise<boolean> {
+  return gitCheck(cwd, ['rev-parse', '--verify', branchName]);
+}
+
+/**
+ * Get recent commit messages
+ */
+export async function getRecentCommitMessages(
+  cwd: string,
+  count = 10,
+): Promise<string> {
+  return gitOutput(cwd, ['log', '-n', String(count), '--pretty=format:%s']);
+}
+
+// ============================================================================
+// Action Functions
+// ============================================================================
+
+/**
+ * Stage all changes
+ */
+export async function stageAll(cwd: string): Promise<void> {
+  const { code, stderr } = await gitExec(cwd, ['add', '.']);
+  if (code !== 0) {
+    const errorMessage = stderr || 'Unknown error';
+    if (errorMessage.includes('fatal: pathspec')) {
+      throw new Error('Failed to stage files: Invalid file path or pattern');
+    }
+    throw new Error(`Failed to stage files: ${errorMessage}`);
+  }
+}
+
+/**
+ * Commit staged changes with a message
+ */
+export async function gitCommit(
+  cwd: string,
+  message: string,
+  skipHooks = false,
+): Promise<void> {
+  const args = ['commit', '-m', message];
+  if (skipHooks) {
+    args.push('--no-verify');
+  }
+  const { code, stderr } = await gitExec(cwd, args);
+  if (code !== 0) {
+    throw new Error(stderr || 'Commit failed');
+  }
+}
+
+/**
+ * Push changes to remote
+ */
+export async function gitPush(cwd: string): Promise<void> {
+  const { code, stderr } = await gitExec(cwd, ['push']);
+  if (code !== 0) {
+    throw new Error(stderr || 'Push failed');
+  }
+}
+
+/**
+ * Create and checkout a new branch
+ */
+export async function createAndCheckoutBranch(
+  cwd: string,
+  branchName: string,
+): Promise<void> {
+  const { code, stderr } = await gitExec(cwd, ['checkout', '-b', branchName]);
+  if (code !== 0) {
+    throw new Error(stderr || 'Failed to create branch');
+  }
+}
+
+// ============================================================================
+// Composite Functions
+// ============================================================================
+
+export async function getGitStatus(opts: { cwd: string }) {
+  const { cwd } = opts;
+  if (!(await isGitRepository(cwd))) {
     return null;
   }
-  const branch = await (async () => {
-    const { stdout } = await execFileNoThrow(
-      cwd,
-      'git',
-      ['branch', '--show-current'],
-      undefined,
-      undefined,
-      false,
-    );
-    return stdout.trim();
-  })();
-  const mainBranch = await (async () => {
-    const { stdout } = await execFileNoThrow(
-      cwd,
-      'git',
-      ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
-      undefined,
-      undefined,
-      false,
-    );
-    return stdout.replace('origin/', '').trim();
-  })();
-  const status = await (async () => {
-    const { stdout } = await execFileNoThrow(
-      cwd,
-      'git',
-      ['status', '--short'],
-      undefined,
-      undefined,
-      false,
-    );
-    return stdout.trim();
-  })();
-  const log = await (async () => {
-    const { stdout } = await execFileNoThrow(
-      cwd,
-      'git',
-      ['log', '--oneline', '-n', '5'],
-      undefined,
-      undefined,
-      false,
-    );
-    return stdout.trim();
-  })();
-  const author = await (async () => {
-    const { stdout } = await execFileNoThrow(
-      cwd,
-      'git',
-      ['config', 'user.email'],
-      undefined,
-      undefined,
-      false,
-    );
-    return stdout.trim();
-  })();
-  const authorLog = await (async () => {
-    const { stdout } = await execFileNoThrow(
-      cwd,
-      'git',
-      ['log', '--author', author, '--oneline', '-n', '5'],
-      undefined,
-      undefined,
-      false,
-    );
-    return stdout.trim();
-  })();
+
+  const [branch, mainBranch, status, log, author] = await Promise.all([
+    gitOutput(cwd, ['branch', '--show-current']),
+    gitOutput(cwd, ['rev-parse', '--abbrev-ref', 'origin/HEAD']).then((s) =>
+      s.replace('origin/', ''),
+    ),
+    gitOutput(cwd, ['status', '--short']),
+    gitOutput(cwd, ['log', '--oneline', '-n', '5']),
+    gitOutput(cwd, ['config', 'user.email']),
+  ]);
+
+  const authorLog = await gitOutput(cwd, [
+    'log',
+    '--author',
+    author,
+    '--oneline',
+    '-n',
+    '5',
+  ]);
+
   return {
     branch,
     mainBranch,
@@ -274,15 +380,7 @@ export async function getPendingChanges(cwd: string): Promise<string[]> {
  * Get staged file list with status
  */
 export async function getStagedFileList(cwd: string): Promise<string> {
-  try {
-    const fileList = execSync('git diff --cached --name-status', {
-      encoding: 'utf-8',
-      cwd,
-    });
-    return fileList.trim();
-  } catch {
-    return '';
-  }
+  return gitOutput(cwd, ['diff', '--cached', '--name-status']);
 }
 
 /**
@@ -824,38 +922,14 @@ export async function getStagedDiff(cwd: string): Promise<string> {
     ':!*.ico',
     ':!*.svg',
     ':!*.pdf',
-  ].join(' ');
+  ];
 
-  // Get the diff with exclusions
-  const execOptions: ExecSyncOptionsWithStringEncoding = {
-    maxBuffer: 100 * 1024 * 1024, // 100MB buffer
-    encoding: 'utf-8',
-    cwd,
-  };
+  const args = ['diff', '--cached', '--', ...excludePatterns];
 
-  try {
-    const diff = execSync(
-      `git diff --cached -- ${excludePatterns}`,
-      execOptions,
-    );
+  const { code, stdout: diff, stderr } = await gitExec(cwd, args);
 
-    // Limit diff size - 100KB is a reasonable limit for most LLM contexts
-    const MAX_DIFF_SIZE = 100 * 1024; // 100KB
-
-    if (diff.length > MAX_DIFF_SIZE) {
-      // If diff is too large, truncate and add a note
-      const truncatedDiff = diff.substring(0, MAX_DIFF_SIZE);
-      return (
-        truncatedDiff +
-        '\n\n[Diff truncated due to size. Total diff size: ' +
-        (diff.length / 1024).toFixed(2) +
-        'KB]'
-      );
-    }
-    return diff;
-  } catch (error: any) {
-    const errorMessage =
-      error.stderr?.toString() || error.message || 'Unknown error';
+  if (code !== 0) {
+    const errorMessage = stderr || 'Unknown error';
 
     if (errorMessage.includes('bad revision')) {
       throw new Error(
@@ -867,15 +941,21 @@ export async function getStagedDiff(cwd: string): Promise<string> {
       throw new Error('Not a Git repository');
     }
 
-    if (
-      error.code === 'ENOBUFS' ||
-      errorMessage.includes('maxBuffer exceeded')
-    ) {
-      throw new Error(
-        'Staged changes are too large to process. Please commit smaller changes.',
-      );
-    }
-
     throw new Error(`Failed to get staged diff: ${errorMessage}`);
   }
+
+  // Limit diff size - 100KB is a reasonable limit for most LLM contexts
+  const MAX_DIFF_SIZE = 100 * 1024; // 100KB
+
+  if (diff.length > MAX_DIFF_SIZE) {
+    // If diff is too large, truncate and add a note
+    const truncatedDiff = diff.substring(0, MAX_DIFF_SIZE);
+    return (
+      truncatedDiff +
+      '\n\n[Diff truncated due to size. Total diff size: ' +
+      (diff.length / 1024).toFixed(2) +
+      'KB]'
+    );
+  }
+  return diff;
 }

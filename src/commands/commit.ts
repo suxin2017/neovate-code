@@ -1,11 +1,24 @@
 import * as p from '@umijs/clack-prompts';
-import { execSync } from 'child_process';
 import clipboardy from 'clipboardy';
 import pc from 'picocolors';
 import type { Context } from '../context';
 import { type ModelInfo, resolveModelWithContext } from '../model';
 import { query } from '../query';
-import { getStagedDiff, getStagedFileList } from '../utils/git';
+import {
+  branchExists,
+  createAndCheckoutBranch,
+  getRecentCommitMessages,
+  getStagedDiff,
+  getStagedFileList,
+  gitCommit,
+  gitPush,
+  hasRemote,
+  hasUncommittedChanges,
+  isGitInstalled,
+  isGitRepository,
+  isGitUserConfigured,
+  stageAll,
+} from '../utils/git';
 import * as logger from '../utils/logger';
 
 interface GenerateCommitMessageOpts {
@@ -19,14 +32,6 @@ interface GenerateBranchNameOpts {
   commitMessage: string;
   language?: string;
   context: Context;
-}
-
-/**
- * Escapes a string argument for safe use in shell commands
- * Uses JSON.stringify to properly handle quotes, parentheses, and other special characters
- */
-function escapeShellArg(arg: string): string {
-  return JSON.stringify(arg);
 }
 
 async function generateCommitMessage(opts: GenerateCommitMessageOpts) {
@@ -156,63 +161,40 @@ export async function runCommit(context: Context) {
   if (!argv.interactive && !argv.commit && !argv.copy) {
     argv.interactive = true;
   }
-  try {
-    execSync('git --version', { stdio: 'ignore' });
-  } catch (error: any) {
+
+  // Validation checks
+  if (!(await isGitInstalled())) {
     throw new Error(
       'Git is not installed or not available in PATH. Please install Git and try again.',
     );
   }
 
-  try {
-    execSync('git rev-parse --git-dir', { stdio: 'ignore' });
-  } catch (error: any) {
+  if (!(await isGitRepository(context.cwd))) {
     throw new Error(
       'Not a Git repository. Please run this command from inside a Git repository.',
     );
   }
 
-  try {
-    execSync('git config user.name', { stdio: 'ignore' });
-  } catch (error: any) {
+  const userConfig = await isGitUserConfigured(context.cwd);
+  if (!userConfig.name) {
     throw new Error(
       'Git user name is not configured. Please run: git config --global user.name "Your Name"',
     );
   }
-
-  try {
-    execSync('git config user.email', { stdio: 'ignore' });
-  } catch (error: any) {
+  if (!userConfig.email) {
     throw new Error(
       'Git user email is not configured. Please run: git config --global user.email "your.email@example.com"',
     );
   }
-  let hasChanged = false;
-  try {
-    hasChanged =
-      execSync('git status --porcelain').toString().trim().length > 0;
-  } catch (error: any) {
-    throw new Error(
-      'Failed to check repository status. Please ensure the repository is not corrupted.',
-    );
-  }
 
+  const hasChanged = await hasUncommittedChanges(context.cwd);
   if (!hasChanged) {
     logger.logWarn('No changes to commit');
     return;
   }
 
   if (argv.stage) {
-    try {
-      execSync('git add .', { stdio: 'inherit' });
-    } catch (error: any) {
-      const errorMessage =
-        error.stderr?.toString() || error.message || 'Unknown error';
-      if (errorMessage.includes('fatal: pathspec')) {
-        throw new Error('Failed to stage files: Invalid file path or pattern');
-      }
-      throw new Error(`Failed to stage files: ${errorMessage}`);
-    }
+    await stageAll(context.cwd);
   }
 
   const diff = await getStagedDiff(context.cwd);
@@ -227,16 +209,14 @@ export async function runCommit(context: Context) {
 
   let repoStyle = '';
   if (argv.followStyle) {
-    try {
-      const recentCommits = execSync(
-        'git log -n 10 --pretty=format:"%s"',
-      ).toString();
+    const recentCommits = await getRecentCommitMessages(context.cwd, 10);
+    if (recentCommits) {
       repoStyle = `
 # Recent commits in this repository:
 ${recentCommits}
 Please follow a similar style for this commit message while still adhering to the structure guidelines.
 `;
-    } catch (error) {
+    } else {
       logger.logError({
         error:
           'Could not analyze repository commit style. Using default style.',
@@ -291,7 +271,7 @@ ${repoStyle}
       context,
     });
     stop();
-    await checkoutNewBranch(branchName);
+    await checkoutNewBranch(context.cwd, branchName);
   }
 
   // Check if interactive mode is needed
@@ -305,9 +285,9 @@ ${repoStyle}
   } else {
     // Non-interactive mode logic
     if (argv.commit || argv.checkout) {
-      await commitChanges(finalMessage, argv.noVerify);
+      await commitChanges(context.cwd, finalMessage, argv.noVerify);
       if (argv.push) {
-        await pushChanges();
+        await pushChanges(context.cwd);
       }
     }
     if (argv.copy) {
@@ -322,38 +302,32 @@ function copyToClipboard(message: string) {
   logger.logResult('Commit message copied to clipboard');
 }
 
-async function checkoutNewBranch(branchName: string): Promise<void> {
+async function checkoutNewBranch(
+  cwd: string,
+  branchName: string,
+): Promise<void> {
+  // Check if branch already exists
+  if (await branchExists(cwd, branchName)) {
+    // Branch exists, add timestamp to make it unique
+    const timestamp = new Date()
+      .toISOString()
+      .slice(0, 16)
+      .replace(/[-:]/g, '');
+    branchName = `${branchName}-${timestamp}`;
+    logger.logWarn(`Branch name already exists, using: ${branchName}`);
+  }
+
+  logger.logAction({
+    message: `Creating and checking out new branch: ${branchName}`,
+  });
+
   try {
-    // Check if branch already exists
-    try {
-      execSync(`git rev-parse --verify ${escapeShellArg(branchName)}`, {
-        stdio: 'ignore',
-      });
-      // Branch exists, add timestamp to make it unique
-      const timestamp = new Date()
-        .toISOString()
-        .slice(0, 16)
-        .replace(/[-:]/g, '');
-      branchName = `${branchName}-${timestamp}`;
-      logger.logWarn(`Branch name already exists, using: ${branchName}`);
-    } catch {
-      // Branch doesn't exist, continue with original name
-    }
-
-    logger.logAction({
-      message: `Creating and checking out new branch: ${branchName}`,
-    });
-
-    // Create and checkout new branch
-    execSync(`git checkout -b ${escapeShellArg(branchName)}`, {
-      stdio: 'inherit',
-    });
+    await createAndCheckoutBranch(cwd, branchName);
     logger.logResult(
       `Successfully created and checked out branch: ${branchName}`,
     );
   } catch (error: any) {
-    const errorMessage =
-      error.stderr?.toString() || error.message || 'Unknown error';
+    const errorMessage = error.message || 'Unknown error';
 
     if (errorMessage.includes('already exists')) {
       throw new Error(
@@ -377,18 +351,14 @@ async function checkoutNewBranch(branchName: string): Promise<void> {
   }
 }
 
-async function commitChanges(message: string, skipHooks = false) {
-  const noVerify = skipHooks ? '--no-verify' : '';
+async function commitChanges(cwd: string, message: string, skipHooks = false) {
   logger.logAction({ message: 'Commit the changes.' });
 
   try {
-    execSync(`git commit -m ${escapeShellArg(message)} ${noVerify}`, {
-      stdio: 'inherit',
-    });
+    await gitCommit(cwd, message, skipHooks);
     logger.logResult('Commit message committed');
   } catch (error: any) {
-    const errorMessage =
-      error.stderr?.toString() || error.message || 'Unknown error';
+    const errorMessage = error.message || 'Unknown error';
 
     if (errorMessage.includes('nothing to commit')) {
       logger.logWarn('No changes to commit');
@@ -434,9 +404,8 @@ async function commitChanges(message: string, skipHooks = false) {
   }
 }
 
-async function pushChanges() {
-  const hasRemote = execSync('git remote').toString().trim().length > 0;
-  if (!hasRemote) {
+async function pushChanges(cwd: string) {
+  if (!(await hasRemote(cwd))) {
     logger.logWarn('No remote repository configured, cannot push');
     return;
   }
@@ -453,13 +422,12 @@ async function pushChanges() {
             : 'Push changes to remote repository.',
       });
 
-      execSync('git push', { stdio: 'inherit' });
+      await gitPush(cwd);
       logger.logResult('Changes pushed to remote repository');
       return;
     } catch (error: any) {
       attempt++;
-      const errorMessage =
-        error.stderr?.toString() || error.message || 'Unknown error';
+      const errorMessage = error.message || 'Unknown error';
 
       if (
         errorMessage.includes('Authentication failed') ||
@@ -532,11 +500,13 @@ async function pushChanges() {
 // Handle interactive mode
 async function handleInteractiveMode(
   message: string,
-  config?: {
+  config: {
     context: Context;
     language: string;
   },
 ) {
+  const { cwd } = config.context;
+
   // Ask user what to do next
   const action = await p.select({
     message: pc.bold(
@@ -563,7 +533,7 @@ async function handleInteractiveMode(
       copyToClipboard(message);
       break;
     case 'commit':
-      await commitChanges(message);
+      await commitChanges(cwd, message);
       break;
     case 'push': {
       // Ask if pre-commit hooks should be skipped
@@ -581,24 +551,21 @@ async function handleInteractiveMode(
       }
 
       // Execute the commit
-      await commitChanges(message, skipHooksResult);
-      await pushChanges();
+      await commitChanges(cwd, message, skipHooksResult);
+      await pushChanges(cwd);
       break;
     }
     case 'checkout': {
       // Generate branch name and let user preview/edit it
-      let suggestedBranchName = 'feature-branch';
-      if (config) {
-        const stop = logger.spinThink({
-          productName: config.context.productName,
-        });
-        suggestedBranchName = await generateBranchName({
-          commitMessage: message,
-          language: config.language,
-          context: config.context,
-        });
-        stop();
-      }
+      const stop = logger.spinThink({
+        productName: config.context.productName,
+      });
+      const suggestedBranchName = await generateBranchName({
+        commitMessage: message,
+        language: config.language,
+        context: config.context,
+      });
+      stop();
 
       const branchName = await p.text({
         message: pc.bold(pc.blueBright('Branch name:')),
@@ -612,8 +579,8 @@ async function handleInteractiveMode(
       }
 
       // Create branch and commit
-      await checkoutNewBranch(branchName);
-      await commitChanges(message);
+      await checkoutNewBranch(cwd, branchName);
+      await commitChanges(cwd, message);
       break;
     }
     case 'edit': {
