@@ -1,3 +1,14 @@
+## 0.21.0
+
+`2025-12-17`
+
+- feat: add xiaomi mimo v2 flash model support by @chencheng (云谦) in [#539](https://github.com/umijs/takumi/pull/539)
+- feat: add line range support for @ path syntax by [@unknown_](https://github.com/unknown_) in [#537](https://github.com/umijs/takumi/pull/537)
+- fix: add defensive checks for diff generation by @chencheng (云谦) in [#538](https://github.com/umijs/takumi/pull/538)
+- fix: handle 'Other' option state updates and improve input selection by [@阿平](https://github.com/阿平) in [#536](https://github.com/umijs/takumi/pull/536)
+- feat: add programmatic SDK for external npm package consumers by @chencheng (云谦) in [#533](https://github.com/umijs/takumi/pull/533)
+
+
 ## 0.20.2
 
 `2025-12-16`
