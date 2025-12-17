@@ -3,10 +3,18 @@ import path from 'pathe';
 import type { Paths } from './paths';
 import { safeFrontMatter } from './utils/safeFrontMatter';
 
+export enum SkillSource {
+  GlobalClaude = 'global-claude',
+  Global = 'global',
+  ProjectClaude = 'project-claude',
+  Project = 'project',
+}
+
 export interface SkillMetadata {
   name: string;
   description: string;
   path: string;
+  source: SkillSource;
 }
 
 export interface SkillError {
@@ -21,8 +29,6 @@ export interface SkillLoadOutcome {
 
 const MAX_NAME_LENGTH = 64;
 const MAX_DESCRIPTION_LENGTH = 1024;
-
-const SKILL_MENTION_REGEX = /\$([a-zA-Z][a-zA-Z0-9_-]*)/g;
 
 export interface SkillManagerOpts {
   paths: Paths;
@@ -65,14 +71,32 @@ export class SkillManager {
     this.skillsMap.clear();
     this.errors = [];
 
-    const globalSkillsDir = path.join(this.paths.globalConfigDir, 'skills');
-    this.loadSkillsFromDirectory(globalSkillsDir);
+    const globalClaudeDir = path.join(
+      path.dirname(this.paths.globalConfigDir),
+      '..',
+      '.claude',
+      'skills',
+    );
+    this.loadSkillsFromDirectory(globalClaudeDir, SkillSource.GlobalClaude);
 
-    const projectSkillsDir = path.join(this.paths.projectConfigDir, 'skills');
-    this.loadSkillsFromDirectory(projectSkillsDir);
+    const globalDir = path.join(this.paths.globalConfigDir, 'skills');
+    this.loadSkillsFromDirectory(globalDir, SkillSource.Global);
+
+    const projectClaudeDir = path.join(
+      path.dirname(this.paths.projectConfigDir),
+      '.claude',
+      'skills',
+    );
+    this.loadSkillsFromDirectory(projectClaudeDir, SkillSource.ProjectClaude);
+
+    const projectDir = path.join(this.paths.projectConfigDir, 'skills');
+    this.loadSkillsFromDirectory(projectDir, SkillSource.Project);
   }
 
-  private loadSkillsFromDirectory(skillsDir: string): void {
+  private loadSkillsFromDirectory(
+    skillsDir: string,
+    source: SkillSource,
+  ): void {
     if (!fs.existsSync(skillsDir)) {
       return;
     }
@@ -84,7 +108,7 @@ export class SkillManager {
         if (entry.isDirectory()) {
           const skillPath = path.join(skillsDir, entry.name, 'SKILL.md');
           if (fs.existsSync(skillPath)) {
-            this.loadSkillFile(skillPath);
+            this.loadSkillFile(skillPath, source);
           }
         }
       }
@@ -100,13 +124,13 @@ export class SkillManager {
     }
   }
 
-  private loadSkillFile(skillPath: string): void {
+  private loadSkillFile(skillPath: string, source: SkillSource): void {
     try {
       const content = fs.readFileSync(skillPath, 'utf-8');
       const parsed = this.parseSkillFile(content, skillPath);
 
       if (parsed) {
-        this.skillsMap.set(parsed.name, parsed);
+        this.skillsMap.set(parsed.name, { ...parsed, source });
       }
     } catch (error) {
       const message =
@@ -121,7 +145,7 @@ export class SkillManager {
   private parseSkillFile(
     content: string,
     skillPath: string,
-  ): SkillMetadata | null {
+  ): Omit<SkillMetadata, 'source'> | null {
     try {
       const { attributes } = safeFrontMatter<{
         name?: string;
