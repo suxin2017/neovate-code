@@ -1,6 +1,7 @@
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import React, { useCallback } from 'react';
+import { clearTerminal } from '../utils/terminal';
 import { ActivityIndicator } from './ActivityIndicator';
 import { ApprovalModal } from './ApprovalModal';
 import { BackgroundPrompt } from './BackgroundPrompt';
@@ -12,6 +13,7 @@ import { Markdown } from './Markdown';
 import { Messages } from './Messages';
 import { QueueDisplay } from './QueueDisplay';
 import { useAppStore } from './store';
+import { TranscriptModeIndicator } from './TranscriptModeIndicator';
 import { useTerminalRefresh } from './useTerminalRefresh';
 
 function SlashCommandJSX() {
@@ -72,7 +74,6 @@ export function App() {
   const { forceRerender } = useTerminalRefresh();
   const {
     forkModalVisible,
-    messages,
     fork,
     hideForkModal,
     forkParentUuid,
@@ -80,9 +81,30 @@ export function App() {
     bridge,
     sessionId,
     cwd,
+    transcriptMode,
+    toggleTranscriptMode,
   } = useAppStore();
   const [forkMessages, setForkMessages] = React.useState<any[]>([]);
   const [forkLoading, setForkLoading] = React.useState(false);
+
+  useInput((input, key) => {
+    // Ctrl+O: Toggle transcript mode
+    if (key.ctrl && input === 'o') {
+      clearTerminal();
+      toggleTranscriptMode();
+      return;
+    }
+
+    // In transcript mode, Escape or Ctrl+C to exit
+    if (transcriptMode) {
+      if (key.escape || (key.ctrl && input === 'c')) {
+        clearTerminal();
+        toggleTranscriptMode();
+      }
+      return;
+    }
+  });
+
   React.useEffect(() => {
     if (!forkModalVisible) return;
     if (!bridge || !cwd || !sessionId) {
@@ -107,14 +129,14 @@ export function App() {
   return (
     <Box
       flexDirection="column"
-      key={`${forceRerender}-${forkParentUuid}-${forkCounter}`}
+      key={`${forceRerender}-${forkParentUuid}-${forkCounter}-${transcriptMode}`}
     >
       <Messages />
       <BackgroundPrompt />
       <PlanResult />
       <ActivityIndicator />
       <QueueDisplay />
-      <ChatInput />
+      {transcriptMode ? <TranscriptModeIndicator /> : <ChatInput />}
       <SlashCommandJSX />
       <ApprovalModal />
       {forkModalVisible && (
