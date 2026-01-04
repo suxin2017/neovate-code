@@ -1,3 +1,11 @@
+## 0.22.6
+
+`2026-01-04`
+
+- fix: add missing createModel property to anthropic provider config by @chencheng (云谦) in [#607](https://github.com/umijs/takumi/pull/607)
+- feat: add modelwatch provider integration by [@sorrycc](https://github.com/sorrycc)
+
+
 ## 0.22.5
 
 `2026-01-04`
