@@ -10,7 +10,7 @@ Create a GitHub bug report issue for this project. Follow this process:
 4. Use AskUserQuestion tool to select severity with these options:
    - annoyance
    - serious, but I can work around it
-   - blocking all usage of TNF
+   - blocking all usage of @neovate/code
 5. Format the information into a structured bug report with sections:
    - Describe the bug
    - Reproduction
