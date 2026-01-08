@@ -1926,7 +1926,7 @@ export const providers: ProvidersMap = {
     doc: 'https://api.modelwatch.dev/',
     models: {
       'gemini-2.5-flash': models['gemini-2.5-flash'],
-      'gemini-3-flash-preview': models['gemini-3-flash-preview'],
+      'gemini-3-flash': models['gemini-3-flash-preview'],
       'gemini-3-pro-preview': models['gemini-3-pro-preview'],
       'claude-4-5-sonnet': models['claude-4-5-sonnet'],
       'claude-haiku-4-5': models['claude-haiku-4-5'],
