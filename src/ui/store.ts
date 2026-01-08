@@ -517,17 +517,15 @@ export const useAppStore = create<AppStore>()(
         }
 
         // Save history to global data (save the original message with placeholders)
-        if (!isSlashCommand(message)) {
-          const newHistory = [...get().history, message];
-          set({
-            history: newHistory,
-            historyIndex: null,
-          });
-          await bridge.request('project.addHistory', {
-            cwd,
-            history: message,
-          });
-        }
+        const newHistory = [...get().history, message];
+        set({
+          history: newHistory,
+          historyIndex: null,
+        });
+        await bridge.request('project.addHistory', {
+          cwd,
+          history: message,
+        });
 
         // slash command - use expanded message for processing
         if (isSlashCommand(expandedMessage)) {
