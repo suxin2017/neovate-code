@@ -154,6 +154,14 @@ function processEscapeCharacters(path: string): string {
     .replace(new RegExp(doubleBackslashPlaceholder, 'g'), '\\');
 }
 
+// Check if text matches absolute image path format
+export function isAbsoluteImagePath(text: string): boolean {
+  const cleanedText = removeQuotes(text.trim());
+  const processedPath = processEscapeCharacters(cleanedText);
+  const imageExtensionRegex = /\.(png|jpe?g|gif|webp)$/i;
+  return isAbsolute(processedPath) && imageExtensionRegex.test(processedPath);
+}
+
 // Check if text matches image path format
 export function isImagePath(text: string): boolean {
   const cleanedText = removeQuotes(text.trim());
@@ -175,22 +183,11 @@ export async function processImageFromPath(
   pasteContent: string,
 ): Promise<{ base64: string; mediaType: string; path: string } | null> {
   const imagePath = extractImagePath(pasteContent);
-  if (!imagePath) return null;
+  if (!imagePath || !isAbsolute(imagePath)) return null;
 
   let imageData: Buffer;
   try {
-    if (isAbsolute(imagePath)) {
-      // Read directly for absolute path
-      imageData = readFileSync(imagePath);
-    } else {
-      // For relative path, combine with clipboard path
-      const clipboardPath = getClipboardPath();
-      if (clipboardPath && imagePath === basename(clipboardPath)) {
-        imageData = readFileSync(clipboardPath);
-      } else {
-        return null;
-      }
-    }
+    imageData = readFileSync(imagePath);
   } catch (error) {
     console.error('Failed to read image file:', error);
     return null;

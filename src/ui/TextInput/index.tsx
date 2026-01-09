@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { existsSync } from 'fs';
 import { type Key, Text, useInput } from 'ink';
 import React from 'react';
 import { PASTE_CONFIG } from '../constants';
@@ -6,7 +7,7 @@ import { useAppStore } from '../store';
 import { useTerminalSize } from '../useTerminalSize';
 import { darkTheme } from './constant';
 import { useTextInput } from './hooks/useTextInput';
-import { isImagePath, processImageFromPath } from './utils/imagePaste';
+import { isAbsoluteImagePath, processImageFromPath } from './utils/imagePaste';
 
 /**
  * Extended columns configuration for terminal-aware width
@@ -321,15 +322,14 @@ export default function TextInput({
     timeoutId: null,
   });
 
-  // Check if text matches image path format
+  // Check if text matches image path format (must be absolute path and file must exist)
   const isImagePathText = (text: string): boolean => {
     try {
-      return isImagePath(text);
-    } catch {
-      // Fallback regex check
-      const imageExtensionRegex = /\.(png|jpe?g|gif|webp)$/i;
+      if (!isAbsoluteImagePath(text)) return false;
       const cleanedText = text.trim().replace(/^["']|["']$/g, '');
-      return imageExtensionRegex.test(cleanedText);
+      return existsSync(cleanedText);
+    } catch {
+      return false;
     }
   };
 
