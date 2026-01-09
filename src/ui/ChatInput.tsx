@@ -1,6 +1,6 @@
 import { Box, Text } from 'ink';
 import os from 'os';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SPACING, UI_COLORS } from './constants';
 import { DebugRandomNumber } from './Debug';
 import { MemoryModal } from './MemoryModal';
@@ -74,6 +74,9 @@ export function ChatInput() {
   const showSuggestions =
     slashCommands.suggestions.length > 0 ||
     fileSuggestion.matchedPaths.length > 0;
+
+  const [reverseSearchMatch, setReverseSearchMatch] = useState('');
+
   const placeholderText = useMemo(() => {
     if (queuedMessages.length > 0) {
       // Show platform-appropriate keyboard shortcut text
@@ -85,13 +88,16 @@ export function ChatInput() {
     return '';
   }, [currentTip, queuedMessages, modifierKey]);
 
-  // Display value - slice prefix for bash/memory modes
+  // Display value - slice prefix for bash/memory modes, show match in reverse search
   const displayValue = useMemo(() => {
+    if (reverseSearch.active) {
+      return reverseSearchMatch;
+    }
     if (mode === 'bash' || mode === 'memory') {
       return inputState.state.value.slice(1);
     }
     return inputState.state.value;
-  }, [mode, inputState.state.value]);
+  }, [mode, inputState.state.value, reverseSearch.active, reverseSearchMatch]);
 
   // Adjust cursor position for display (subtract 1 for bash/memory modes)
   const displayCursorOffset = useMemo(() => {
@@ -170,77 +176,76 @@ export function ChatInput() {
       <ModeIndicator />
       <Box flexDirection="column">
         <Text color={borderColor}>{'─'.repeat(Math.max(0, columns))}</Text>
-        {reverseSearch.active ? (
-          <Box flexDirection="row" gap={1}>
-            <Text color={UI_COLORS.CHAT_ARROW}>{'>'}</Text>
+        <Box flexDirection="row" gap={1}>
+          <Text
+            color={
+              inputState.state.value
+                ? UI_COLORS.CHAT_ARROW_ACTIVE
+                : UI_COLORS.CHAT_ARROW
+            }
+          >
+            {promptSymbol}
+          </Text>
+          <TextInput
+            multiline
+            showCursor={isWindowFocused && !reverseSearch.active}
+            value={displayValue}
+            placeholder={placeholderText}
+            onChange={handleDisplayChange}
+            onHistoryUp={handlers.handleHistoryUp}
+            onQueuedMessagesUp={handlers.handleQueuedMessagesUp}
+            onHistoryDown={handlers.handleHistoryDown}
+            onHistoryReset={handlers.handleHistoryReset}
+            onReverseSearch={handlers.handleReverseSearch}
+            onReverseSearchPrevious={handlers.handleReverseSearchPrevious}
+            onExit={() => {
+              setStatus('exit');
+              setTimeout(() => {
+                process.exit(0);
+              }, 100);
+            }}
+            onExitMessage={(show, key) => {
+              setExitMessage(show ? `Press ${key} again to exit` : null);
+            }}
+            onMessage={(_show, text) => {
+              log(`onMessage${text}`);
+            }}
+            onEscape={() => {
+              const shouldCancel = !handlers.handleEscape();
+              if (shouldCancel) {
+                cancel().catch((e) => {
+                  log(`cancel error: ${e.message}`);
+                });
+              }
+            }}
+            onDoubleEscape={() => {
+              showForkModal();
+            }}
+            onImagePaste={handlers.handleImagePaste}
+            onPaste={handlers.handlePaste}
+            onSubmit={handlers.handleSubmit}
+            cursorOffset={displayCursorOffset}
+            onChangeCursorOffset={handleDisplayCursorChange}
+            disableCursorMovementForUpDownKeys={showSuggestions}
+            onTabPress={handlers.handleTabPress}
+            onDelete={handleDelete}
+            onExternalEdit={handleExternalEdit}
+            columns={{ useTerminalSize: true, prefix: 2, suffix: 4 }}
+            isDimmed={false}
+            onCtrlBBackground={
+              bashBackgroundPrompt ? handleMoveToBackground : undefined
+            }
+          />
+          <DebugRandomNumber />
+        </Box>
+        {reverseSearch.active && (
+          <Box flexDirection="row" marginLeft={2}>
             <ReverseSearchInput
               history={reverseSearch.history}
               onExit={handlers.handleReverseSearchExit}
               onCancel={handlers.handleReverseSearchCancel}
+              onMatchChange={setReverseSearchMatch}
             />
-          </Box>
-        ) : (
-          <Box flexDirection="row" gap={1}>
-            <Text
-              color={
-                inputState.state.value
-                  ? UI_COLORS.CHAT_ARROW_ACTIVE
-                  : UI_COLORS.CHAT_ARROW
-              }
-            >
-              {promptSymbol}
-            </Text>
-            <TextInput
-              multiline
-              showCursor={isWindowFocused}
-              value={displayValue}
-              placeholder={placeholderText}
-              onChange={handleDisplayChange}
-              onHistoryUp={handlers.handleHistoryUp}
-              onQueuedMessagesUp={handlers.handleQueuedMessagesUp}
-              onHistoryDown={handlers.handleHistoryDown}
-              onHistoryReset={handlers.handleHistoryReset}
-              onReverseSearch={handlers.handleReverseSearch}
-              onReverseSearchPrevious={handlers.handleReverseSearchPrevious}
-              onExit={() => {
-                setStatus('exit');
-                setTimeout(() => {
-                  process.exit(0);
-                }, 100);
-              }}
-              onExitMessage={(show, key) => {
-                setExitMessage(show ? `Press ${key} again to exit` : null);
-              }}
-              onMessage={(_show, text) => {
-                log(`onMessage${text}`);
-              }}
-              onEscape={() => {
-                const shouldCancel = !handlers.handleEscape();
-                if (shouldCancel) {
-                  cancel().catch((e) => {
-                    log(`cancel error: ${e.message}`);
-                  });
-                }
-              }}
-              onDoubleEscape={() => {
-                showForkModal();
-              }}
-              onImagePaste={handlers.handleImagePaste}
-              onPaste={handlers.handlePaste}
-              onSubmit={handlers.handleSubmit}
-              cursorOffset={displayCursorOffset}
-              onChangeCursorOffset={handleDisplayCursorChange}
-              disableCursorMovementForUpDownKeys={showSuggestions}
-              onTabPress={handlers.handleTabPress}
-              onDelete={handleDelete}
-              onExternalEdit={handleExternalEdit}
-              columns={{ useTerminalSize: true, prefix: 2, suffix: 4 }}
-              isDimmed={false}
-              onCtrlBBackground={
-                bashBackgroundPrompt ? handleMoveToBackground : undefined
-              }
-            />
-            <DebugRandomNumber />
           </Box>
         )}
         <Text color={borderColor}>{'─'.repeat(Math.max(0, columns))}</Text>

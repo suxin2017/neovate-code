@@ -285,7 +285,7 @@ export default function TextInput({
     multiline,
     cursorChar: showCursor ? ' ' : '',
     highlightPastedText,
-    invert: chalk.inverse,
+    invert: showCursor ? chalk.inverse : (text: string) => text,
     themeText: (text: string) => chalk.hex(darkTheme.text)(text),
     columns: effectiveColumns,
     onImagePaste,

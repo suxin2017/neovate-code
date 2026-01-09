@@ -1,7 +1,6 @@
 import chalk from 'chalk';
 import { Box, Text, useInput } from 'ink';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useTerminalSize } from './useTerminalSize';
 
 export type CursorAction = 'start' | 'end' | 'left' | 'right';
 
@@ -9,17 +8,18 @@ interface ReverseSearchInputProps {
   history: string[];
   onExit: (match: string, cursorAction?: CursorAction) => void;
   onCancel: () => void;
+  onMatchChange?: (match: string) => void;
 }
 
 export function ReverseSearchInput({
   history,
   onExit,
   onCancel,
+  onMatchChange,
 }: ReverseSearchInputProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [cursorOffset, setCursorOffset] = useState(0);
-  const { columns } = useTerminalSize();
 
   // Filter matches based on query (case-insensitive), most recent first
   const matches = useMemo(() => {
@@ -43,6 +43,11 @@ export function ReverseSearchInput({
 
   // Current matched command
   const currentMatch = matches[selectedIndex] ?? '';
+
+  // Notify parent of match changes
+  useEffect(() => {
+    onMatchChange?.(currentMatch);
+  }, [currentMatch, onMatchChange]);
 
   // Navigate to next (older) match - Ctrl+R
   const navigateNext = useCallback(() => {
@@ -178,6 +183,9 @@ export function ReverseSearchInput({
 
     // Regular character input - insert at cursor position
     if (input && !key.ctrl && !key.meta) {
+      if (input === '[O' || input === '[I') {
+        return;
+      }
       setQuery(
         (prev) =>
           prev.slice(0, cursorOffset) + input + prev.slice(cursorOffset),
@@ -200,49 +208,10 @@ export function ReverseSearchInput({
     return beforeCursor + chalk.inverse(atCursor) + afterCursor;
   }, [query, cursorOffset]);
 
-  // Calculate display width for matched command
-  const prefixText = "(reverse-i-search)'";
-  const suffixText = "': ";
-  const prefixLength = prefixText.length + query.length + suffixText.length;
-  const maxMatchWidth = Math.max(0, columns - prefixLength - 4);
-
-  // Truncate match for display if needed
-  const displayMatch = useMemo(() => {
-    if (currentMatch.length <= maxMatchWidth) {
-      return currentMatch;
-    }
-    return `...${currentMatch.slice(-(maxMatchWidth - 3))}`;
-  }, [currentMatch, maxMatchWidth]);
-
-  // Render match with highlighted query text
-  const renderedMatch = useMemo(() => {
-    if (!displayMatch || !query) {
-      return displayMatch;
-    }
-
-    // Find match position (case-insensitive)
-    const lowerMatch = displayMatch.toLowerCase();
-    const lowerQuery = query.toLowerCase();
-    const matchIndex = lowerMatch.indexOf(lowerQuery);
-
-    if (matchIndex === -1) {
-      return displayMatch;
-    }
-
-    // Split and highlight
-    const before = displayMatch.slice(0, matchIndex);
-    const matched = displayMatch.slice(matchIndex, matchIndex + query.length);
-    const after = displayMatch.slice(matchIndex + query.length);
-
-    return before + chalk.yellow(matched) + after;
-  }, [displayMatch, query]);
-
   return (
-    <Box flexDirection="row">
-      <Text dimColor>{prefixText}</Text>
+    <Box flexDirection="row" gap={1}>
+      <Text dimColor>search prompts:</Text>
       <Text>{renderedQuery}</Text>
-      <Text dimColor>{suffixText}</Text>
-      <Text>{renderedMatch}</Text>
     </Box>
   );
 }
