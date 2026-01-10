@@ -1163,8 +1163,10 @@ ${diff}
         `.trim();
 
         // Use custom system prompt or default
-        const finalSystemPrompt =
-          systemPrompt || createGenerateCommitSystemPrompt(language);
+        const finalSystemPrompt = createGenerateCommitSystemPrompt(
+          language,
+          systemPrompt,
+        );
 
         // Call utils.quickQuery with JSON schema for structured output
         const result = await this.messageBus.messageHandlers.get(
@@ -2646,7 +2648,10 @@ function normalizeProviders(providers: ProvidersMap, context: Context) {
   );
 }
 
-function createGenerateCommitSystemPrompt(language: string) {
+function createGenerateCommitSystemPrompt(
+  language: string,
+  systemPrompt?: string,
+) {
   const { isEnglish } = require('./utils/language');
   const useEnglish = isEnglish(language);
   const descriptionLang = useEnglish
@@ -2679,6 +2684,8 @@ Analyze the changes carefully and generate a JSON response with the following fi
 
 4. **summary**: A brief 1-2 sentence summary of the changes${summaryLang}
    - Describe what was changed and why
+
+${systemPrompt ? `\n${systemPrompt}` : ''}
 
 ## Response Format
 
