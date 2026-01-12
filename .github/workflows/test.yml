@@ -21,7 +21,7 @@ jobs:
             node-version: 20
     runs-on: ${{ matrix.os }}
     env:
-      IFLOW_API_KEY: ${{ secrets.IFLOW_API_KEY }}
+      MODELWATCH_API_KEY: ${{ secrets.MODELWATCH_API_KEY }}
 
     steps:
       - uses: actions/checkout@v4
@@ -58,8 +58,4 @@ jobs:
         run: pnpm test
 
       - name: Run CLI integration test
-        shell: bash
-        run: |
-          output=$(node ./dist/cli.mjs -m cerebras/zai-glm-4.6 -q --output-format json "hello")
-          echo "$output"
-          echo "$output" | node -e "JSON.parse(require('fs').readFileSync(0, 'utf-8'))"
+        run: bun scripts/cli-integration-test.ts
