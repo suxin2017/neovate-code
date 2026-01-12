@@ -698,6 +698,22 @@ export const models: ModelMap = {
     open_weights: false,
     limit: { context: 400000, output: 128000 },
   },
+  'gpt-5.2-codex': {
+    name: 'GPT-5.1-Codex',
+    attachment: false,
+    reasoning: true,
+    temperature: false,
+    tool_call: true,
+    knowledge: '2024-09-30',
+    release_date: '2025-11-13',
+    last_updated: '2025-11-13',
+    modalities: {
+      input: ['text', 'image'],
+      output: ['text'],
+    },
+    open_weights: false,
+    limit: { context: 400000, output: 128000 },
+  },
   'gpt-4.1': {
     name: 'GPT-4.1',
     attachment: true,

@@ -408,24 +408,33 @@ class NodeHandlerRegistry {
       const context = await this.getContext(cwd);
       const { providers, model } = await resolveModelWithContext(null, context);
       const currentModel = model;
-      const currentModelInfo = model
-        ? {
-            providerName: model.provider.name,
-            modelName: model.model.name,
-            modelId: model.model.id,
-            modelContextLimit: model.model.limit.context,
-          }
-        : null;
+      const currentModelInfo =
+        model?.provider && model?.model
+          ? {
+              providerName: model.provider.name,
+              modelName: model.model.name,
+              modelId: model.model.id,
+              modelContextLimit: model.model.limit.context,
+            }
+          : null;
       const groupedModels = Object.values(
         providers as Record<string, Provider>,
       ).map((provider) => ({
         provider: provider.name,
         providerId: provider.id,
-        models: Object.entries(provider.models).map(([modelId, model]) => ({
-          name: (model as ModelData).name,
-          modelId: modelId,
-          value: `${provider.id}/${modelId}`,
-        })),
+        models: Object.entries(provider.models)
+          .filter(([modelId, model]) => {
+            if (model == null) {
+              console.log('[debug] null model:', provider.id, modelId);
+              return false;
+            }
+            return true;
+          })
+          .map(([modelId, model]) => ({
+            name: (model as ModelData).name,
+            modelId: modelId,
+            value: `${provider.id}/${modelId}`,
+          })),
       }));
       return {
         success: true,
