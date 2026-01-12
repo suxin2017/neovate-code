@@ -15,6 +15,10 @@ interface Provider {
   env?: string[];
   apiEnv?: string[];
   hasApiKey: boolean;
+  maskedApiKey?: string;
+  apiKeyOrigin?: 'env' | 'config';
+  apiKeyEnvName?: string;
+  oauthUser?: string;
 }
 
 interface LoginSelectProps {
@@ -149,13 +153,35 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
 
       {provider.doc && (
         <Box marginBottom={1}>
-          <Text color="cyan">📖 Documentation: {provider.doc}</Text>
+          <Text color="cyan">📖 Documentation: </Text>
+          <Link url={provider.doc}>
+            <Text color="blue">{provider.doc}</Text>
+          </Link>
         </Box>
       )}
 
       {provider.validEnvs.length > 0 && (
         <Box marginBottom={1}>
-          <Text color="green">✓ Found: {provider.validEnvs.join(', ')}</Text>
+          <Text color="green">✓ Env vars: {provider.validEnvs.join(', ')}</Text>
+        </Box>
+      )}
+
+      {provider.oauthUser && (
+        <Box marginBottom={1}>
+          <Text color="green">✓ Logged in as: {provider.oauthUser}</Text>
+        </Box>
+      )}
+
+      {provider.maskedApiKey && (
+        <Box marginBottom={1}>
+          <Text color="gray">
+            Current API Key: {provider.maskedApiKey}
+            {provider.apiKeyOrigin === 'env' && provider.apiKeyEnvName
+              ? ` (from ${provider.apiKeyEnvName})`
+              : provider.apiKeyOrigin === 'config'
+                ? ' (from config)'
+                : ''}
+          </Text>
         </Box>
       )}
 

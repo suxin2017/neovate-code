@@ -467,6 +467,10 @@ type ProvidersListOutput = {
       apiEnv?: string[];
       validEnvs: string[];
       hasApiKey: boolean;
+      maskedApiKey?: string;
+      apiKeyOrigin?: 'env' | 'config';
+      apiKeyEnvName?: string;
+      oauthUser?: string;
     }>;
   };
 };

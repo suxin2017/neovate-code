@@ -2620,12 +2620,17 @@ function buildSignalKey(cwd: string, sessionId: string) {
   return `${cwd}/${sessionId}`;
 }
 
+function maskApiKey(apiKey: string): string {
+  if (apiKey.length <= 8) {
+    return '****';
+  }
+  return `${apiKey.slice(0, 4)}****${apiKey.slice(-4)}`;
+}
+
 function normalizeProviders(providers: ProvidersMap, context: Context) {
   return Object.values(providers as Record<string, Provider>).map(
     (provider) => {
-      // Check environment variables for this provider
       const validEnvs: string[] = [];
-      // Check provider.env (array of required env var names)
       if (provider.env && Array.isArray(provider.env)) {
         provider.env.forEach((envVar: string) => {
           if (process.env[envVar]) {
@@ -2633,7 +2638,6 @@ function normalizeProviders(providers: ProvidersMap, context: Context) {
           }
         });
       }
-      // Check provider.apiEnv (array of env var names)
       if (provider.apiEnv && Array.isArray(provider.apiEnv)) {
         provider.apiEnv.forEach((envVar: string) => {
           if (process.env[envVar]) {
@@ -2641,11 +2645,48 @@ function normalizeProviders(providers: ProvidersMap, context: Context) {
           }
         });
       }
-      // Check if API key is already configured
-      const hasApiKey = !!(
-        provider.options?.apiKey ||
-        context.config.provider?.[provider.id]?.options?.apiKey
-      );
+
+      const configApiKey =
+        context.config.provider?.[provider.id]?.options?.apiKey;
+      const envApiKey = (() => {
+        for (const envVar of provider.env || []) {
+          if (process.env[envVar]) {
+            return { key: process.env[envVar]!, envName: envVar };
+          }
+        }
+        return null;
+      })();
+
+      const hasApiKey = !!(provider.options?.apiKey || configApiKey);
+
+      let maskedApiKey: string | undefined;
+      let apiKeyOrigin: 'env' | 'config' | undefined;
+      let apiKeyEnvName: string | undefined;
+      let oauthUser: string | undefined;
+
+      if (envApiKey) {
+        maskedApiKey = maskApiKey(envApiKey.key);
+        apiKeyOrigin = 'env';
+        apiKeyEnvName = envApiKey.envName;
+      } else if (configApiKey) {
+        apiKeyOrigin = 'config';
+        if (provider.id === 'github-copilot' || provider.id === 'antigravity') {
+          try {
+            const account = JSON.parse(configApiKey);
+            oauthUser =
+              account.user?.login ||
+              account.username ||
+              account.email ||
+              account.user?.email;
+            maskedApiKey = oauthUser ? undefined : '(OAuth token)';
+          } catch {
+            maskedApiKey = '(OAuth token)';
+          }
+        } else {
+          maskedApiKey = maskApiKey(configApiKey);
+        }
+      }
+
       return {
         id: provider.id,
         name: provider.name,
@@ -2654,6 +2695,10 @@ function normalizeProviders(providers: ProvidersMap, context: Context) {
         apiEnv: provider.apiEnv,
         validEnvs,
         hasApiKey,
+        maskedApiKey,
+        apiKeyOrigin,
+        apiKeyEnvName,
+        oauthUser,
       };
     },
   );
