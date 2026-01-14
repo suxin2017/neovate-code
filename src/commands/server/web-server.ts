@@ -1,4 +1,5 @@
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import { Type } from '@sinclair/typebox';
 import fastify, { type FastifyInstance } from 'fastify';
 import fs from 'fs';
 import path from 'pathe';
@@ -51,6 +52,29 @@ class WebServer {
   }
 
   private async registerPlugins() {
+    await this.app.register(import('@fastify/swagger'), {
+      openapi: {
+        info: {
+          title: 'Neovate Code API',
+          description: 'API documentation for Neovate Code Server',
+          version: '0.1.0',
+        },
+        servers: [
+          {
+            url: `http://${this.host}:${this.port}`,
+          },
+        ],
+      },
+    });
+
+    await this.app.register(import('@fastify/swagger-ui'), {
+      routePrefix: '/documentation',
+      uiConfig: {
+        docExpansion: 'full',
+        deepLinking: false,
+      },
+    });
+
     await this.app.register(import('@fastify/cors'), {
       origin: true,
       methods: ['GET', 'HEAD', 'PUT', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -91,25 +115,59 @@ class WebServer {
 
   private async setupRoutes() {
     // Health check endpoint
-    this.app.get('/health', async (_request, reply) => {
-      return reply.send({
-        status: 'ok',
-        clients: this.clients.size,
-        timestamp: new Date().toISOString(),
-      });
-    });
+    this.app.get(
+      '/health',
+      {
+        schema: {
+          description: 'Health check endpoint',
+          tags: ['System'],
+          response: {
+            200: Type.Object({
+              status: Type.String(),
+              clients: Type.Number(),
+              timestamp: Type.String(),
+            }),
+          },
+        },
+      },
+      async (_request, reply) => {
+        return reply.send({
+          status: 'ok',
+          clients: this.clients.size,
+          timestamp: new Date().toISOString(),
+        });
+      },
+    );
 
     // Client info endpoint
-    this.app.get('/clients', async (_request, reply) => {
-      const clientInfo = Array.from(this.clients.entries()).map(
-        ([id, client]) => ({
-          id,
-          connected: client.transport.isConnected(),
-          state: client.transport.getState(),
-        }),
-      );
-      return reply.send(clientInfo);
-    });
+    this.app.get(
+      '/clients',
+      {
+        schema: {
+          description: 'Get connected clients information',
+          tags: ['System'],
+          response: {
+            200: Type.Array(
+              Type.Object({
+                id: Type.String(),
+                connected: Type.Boolean(),
+                state: Type.String(),
+              }),
+            ),
+          },
+        },
+      },
+      async (_request, reply) => {
+        const clientInfo = Array.from(this.clients.entries()).map(
+          ([id, client]) => ({
+            id,
+            connected: client.transport.isConnected(),
+            state: client.transport.getState(),
+          }),
+        );
+        return reply.send(clientInfo);
+      },
+    );
 
     // files
     await this.app.register(import('./routes/files'), {

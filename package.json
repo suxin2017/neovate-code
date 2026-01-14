@@ -61,7 +61,6 @@
   "license": "MIT",
   "description": "A coding agent to enhance your development workflow.",
   "devDependencies": {
-    "cli-highlight": "^2.1.11",
     "@ai-sdk/anthropic": "^2.0.56",
     "@ai-sdk/cerebras": "^1.0.33",
     "@ai-sdk/google": "^2.0.46",
@@ -97,6 +96,7 @@
     "ai": "^5.0.113",
     "chalk": "^5.5.0",
     "chardet": "^2.1.1",
+    "cli-highlight": "^2.1.11",
     "clipboardy": "^5.0.2",
     "debug": "^4.4.3",
     "defu": "^6.1.4",
@@ -149,5 +149,9 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "@fastify/swagger": "^9.6.1",
+    "@fastify/swagger-ui": "^5.2.4"
   }
 }
