@@ -51,29 +51,35 @@ class WebServer {
     }).withTypeProvider<TypeBoxTypeProvider>();
   }
 
-  private async registerPlugins() {
-    await this.app.register(import('@fastify/swagger'), {
-      openapi: {
-        info: {
-          title: 'Neovate Code API',
-          description: 'API documentation for Neovate Code Server',
-          version: '0.1.0',
-        },
-        servers: [
-          {
-            url: `http://${this.host}:${this.port}`,
+  private async registerSwagger() {
+    if (isLocal()) {
+      await this.app.register(import('@fastify/swagger'), {
+        openapi: {
+          info: {
+            title: 'Neovate Code API',
+            description: 'API documentation for Neovate Code Server',
+            version: '0.1.0',
           },
-        ],
-      },
-    });
+          servers: [
+            {
+              url: `http://${this.host}:${this.port}`,
+            },
+          ],
+        },
+      });
 
-    await this.app.register(import('@fastify/swagger-ui'), {
-      routePrefix: '/documentation',
-      uiConfig: {
-        docExpansion: 'full',
-        deepLinking: false,
-      },
-    });
+      await this.app.register(import('@fastify/swagger-ui'), {
+        routePrefix: '/documentation',
+        uiConfig: {
+          docExpansion: 'full',
+          deepLinking: false,
+        },
+      });
+    }
+  }
+
+  private async registerPlugins() {
+    await this.registerSwagger();
 
     await this.app.register(import('@fastify/cors'), {
       origin: true,

@@ -14,13 +14,6 @@ patchedDependencies:
 importers:
 
   .:
-    dependencies:
-      '@fastify/swagger':
-        specifier: ^9.6.1
-        version: 9.6.1
-      '@fastify/swagger-ui':
-        specifier: ^5.2.4
-        version: 5.2.4
     devDependencies:
       '@ai-sdk/anthropic':
         specifier: ^2.0.56
@@ -64,6 +57,12 @@ importers:
       '@fastify/static':
         specifier: ^8.3.0
         version: 8.3.0
+      '@fastify/swagger':
+        specifier: ^9.6.1
+        version: 9.6.1
+      '@fastify/swagger-ui':
+        specifier: ^5.2.4
+        version: 5.2.4
       '@fastify/type-provider-typebox':
         specifier: 6.1.0
         version: 6.1.0(typebox@1.0.41)
