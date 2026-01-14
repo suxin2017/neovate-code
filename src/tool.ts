@@ -48,7 +48,7 @@ export async function resolveTools(opts: ResolveToolsOpts) {
     createLSTool({ cwd }),
     createGlobTool({ cwd }),
     createGrepTool({ cwd }),
-    createFetchTool({ model }),
+    createFetchTool({ model, fetch: opts.context.fetch }),
     ...(hasSkills
       ? [createSkillTool({ skillManager: opts.context.skillManager! })]
       : []),

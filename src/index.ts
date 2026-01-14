@@ -329,6 +329,7 @@ export async function runNeovate(opts: {
   plugins: Plugin[];
   upgrade?: UpgradeOptions;
   argv: Argv;
+  fetch?: typeof globalThis.fetch;
 }): Promise<{ shutdown?: () => Promise<void> }> {
   const argv = opts.argv;
   const cwd = argv.cwd || process.cwd();
@@ -363,6 +364,7 @@ export async function runNeovate(opts: {
     productName: opts.productName,
     productASCIIArt: opts.productASCIIArt,
     version: opts.version,
+    fetch: opts.fetch,
     argvConfig: {
       model: argv.model,
       planModel: argv.planModel,

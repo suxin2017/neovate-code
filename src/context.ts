@@ -32,6 +32,7 @@ type ContextOpts = {
   messageBus?: MessageBus;
   agentManager?: AgentManager;
   plugins: (string | Plugin)[];
+  fetch?: typeof globalThis.fetch;
 };
 
 export type ContextCreateOpts = {
@@ -42,6 +43,7 @@ export type ContextCreateOpts = {
   argvConfig: Record<string, any>;
   plugins: (string | Plugin)[];
   messageBus?: MessageBus;
+  fetch?: typeof globalThis.fetch;
 };
 
 export class Context {
@@ -59,6 +61,7 @@ export class Context {
   messageBus?: MessageBus;
   agentManager?: AgentManager;
   plugins: (string | Plugin)[];
+  fetch?: typeof globalThis.fetch;
   constructor(opts: ContextOpts) {
     this.cwd = opts.cwd;
     this.productName = opts.productName;
@@ -74,6 +77,7 @@ export class Context {
     this.messageBus = opts.messageBus;
     this.agentManager = opts.agentManager;
     this.plugins = opts.plugins;
+    this.fetch = opts.fetch;
   }
 
   async apply(applyOpts: Omit<PluginApplyOpts, 'pluginContext'>) {
@@ -157,6 +161,7 @@ export class Context {
       backgroundTaskManager,
       messageBus: opts.messageBus,
       plugins: pluginsConfigs,
+      fetch: opts.fetch,
     });
 
     // Create and attach SkillManager
