@@ -17,6 +17,8 @@ interface ActionItem {
   value: CommitAction;
   label: string;
   icon: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 const BASE_ACTIONS: ActionItem[] = [
@@ -38,7 +40,7 @@ const PR_ACTION: ActionItem = {
 };
 
 const TAIL_ACTIONS: ActionItem[] = [
-  { value: 'edit', label: 'Edit commit message', icon: '✏️' },
+  { value: 'edit', label: 'Edit commit message', icon: '📝' },
   { value: 'editBranch', label: 'Edit branch name', icon: '🌿' },
   { value: 'cancel', label: 'Cancel', icon: '❌' },
 ];
@@ -50,6 +52,7 @@ export interface CommitActionSelectorProps {
   defaultAction?: CommitAction;
   hasGhCli?: boolean;
   isGitHubRemote?: boolean;
+  hasRemote?: boolean;
 }
 
 export const CommitActionSelector: React.FC<CommitActionSelectorProps> = ({
@@ -59,19 +62,50 @@ export const CommitActionSelector: React.FC<CommitActionSelectorProps> = ({
   defaultAction = 'push', // Default to "Commit and push"
   hasGhCli = false,
   isGitHubRemote = false,
+  hasRemote = true,
 }) => {
   // Build actions list dynamically based on GitHub detection
   const actions = useMemo(() => {
     const showPRAction = hasGhCli && isGitHubRemote;
-    if (showPRAction) {
-      return [...BASE_ACTIONS, PR_ACTION, ...TAIL_ACTIONS];
-    }
-    return [...BASE_ACTIONS, ...TAIL_ACTIONS];
-  }, [hasGhCli, isGitHubRemote]);
+    const remoteRequiredActions = ['push', 'checkoutPush', 'checkoutPushPR'];
+    const noRemoteReason = 'No remote configured';
 
-  const defaultIndex = actions.findIndex((a) => a.value === defaultAction);
+    // Mark push-related actions as disabled if no remote
+    const baseActionsWithRemoteCheck = BASE_ACTIONS.map((action) => {
+      if (!hasRemote && remoteRequiredActions.includes(action.value)) {
+        return {
+          ...action,
+          disabled: true,
+          disabledReason: noRemoteReason,
+        };
+      }
+      return action;
+    });
+
+    // Add PR action if applicable
+    let allActions = baseActionsWithRemoteCheck;
+    if (showPRAction) {
+      const prActionWithCheck = !hasRemote
+        ? { ...PR_ACTION, disabled: true, disabledReason: noRemoteReason }
+        : PR_ACTION;
+      allActions = [...allActions, prActionWithCheck];
+    }
+
+    // Separate enabled and disabled actions
+    const enabledActions = allActions.filter((a) => !a.disabled);
+    const disabledActions = allActions.filter((a) => a.disabled);
+
+    // Put disabled actions at the end, before TAIL_ACTIONS
+    return [...enabledActions, ...TAIL_ACTIONS, ...disabledActions];
+  }, [hasGhCli, isGitHubRemote, hasRemote]);
+
+  const defaultIndex = actions.findIndex(
+    (a) => a.value === defaultAction && !a.disabled,
+  );
   const [selectedIndex, setSelectedIndex] = useState(
-    defaultIndex >= 0 ? defaultIndex : 2,
+    defaultIndex >= 0
+      ? defaultIndex
+      : actions.findIndex((a) => !a.disabled) || 0,
   );
 
   useInput(
@@ -84,24 +118,55 @@ export const CommitActionSelector: React.FC<CommitActionSelectorProps> = ({
       }
 
       if (key.return) {
-        onSelect(actions[selectedIndex].value);
+        const selectedAction = actions[selectedIndex];
+        // Don't allow selecting disabled actions
+        if (!selectedAction.disabled) {
+          onSelect(selectedAction.value);
+        }
         return;
       }
 
       if (key.upArrow) {
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : actions.length - 1));
+        setSelectedIndex((prev) => {
+          // Find previous non-disabled action
+          let newIndex = prev - 1;
+          if (newIndex < 0) newIndex = actions.length - 1;
+
+          // Skip disabled actions
+          while (actions[newIndex]?.disabled && newIndex !== prev) {
+            newIndex--;
+            if (newIndex < 0) newIndex = actions.length - 1;
+          }
+
+          return newIndex;
+        });
         return;
       }
 
       if (key.downArrow) {
-        setSelectedIndex((prev) => (prev < actions.length - 1 ? prev + 1 : 0));
+        setSelectedIndex((prev) => {
+          // Find next non-disabled action
+          let newIndex = prev + 1;
+          if (newIndex >= actions.length) newIndex = 0;
+
+          // Skip disabled actions
+          while (actions[newIndex]?.disabled && newIndex !== prev) {
+            newIndex++;
+            if (newIndex >= actions.length) newIndex = 0;
+          }
+
+          return newIndex;
+        });
         return;
       }
 
       // Quick select by number (1-9)
       const num = Number.parseInt(input, 10);
       if (num >= 1 && num <= actions.length) {
-        onSelect(actions[num - 1].value);
+        const action = actions[num - 1];
+        if (!action.disabled) {
+          onSelect(action.value);
+        }
       }
     },
     { isActive: !disabled },
@@ -113,15 +178,19 @@ export const CommitActionSelector: React.FC<CommitActionSelectorProps> = ({
       <Box flexDirection="column" marginTop={1}>
         {actions.map((action, index) => {
           const isSelected = index === selectedIndex;
+          const isDisabled = action.disabled || disabled;
           return (
             <Box key={action.value}>
               <Text
-                color={isSelected ? 'cyan' : undefined}
-                inverse={isSelected}
-                dimColor={disabled}
+                color={isSelected ? 'cyan' : isDisabled ? 'gray' : undefined}
+                inverse={isSelected && !isDisabled}
+                dimColor={isDisabled}
               >
                 {isSelected ? '● ' : '○ '}
                 {action.icon} {action.label}
+                {isDisabled && action.disabledReason && (
+                  <Text color="yellow"> ({action.disabledReason})</Text>
+                )}
               </Text>
             </Box>
           );

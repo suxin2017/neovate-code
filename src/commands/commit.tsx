@@ -32,6 +32,7 @@ interface GitStatusData {
   isUserConfigured: { name: boolean; email: boolean };
   isMerging: boolean;
   unstagedFiles: Array<{ status: string; file: string }>;
+  hasRemote: boolean;
 }
 
 interface GitHubDetectionData {
@@ -117,6 +118,7 @@ const CommitUI: React.FC<CommitUIProps> = ({ messageBus, cwd, options }) => {
     hasGhCli: false,
     isGitHubRemote: false,
   });
+  const [hasRemote, setHasRemote] = useState(true); // Default to true to avoid flickering
 
   // Handle exit
   useEffect(() => {
@@ -314,6 +316,11 @@ const CommitUI: React.FC<CommitUIProps> = ({ messageBus, cwd, options }) => {
       }
 
       const status = statusResult.data as GitStatusData;
+
+      // Update hasRemote state from git status
+      if (status.hasRemote !== undefined) {
+        setHasRemote(status.hasRemote);
+      }
 
       if (!status.isGitInstalled) {
         setState({
@@ -1006,6 +1013,7 @@ and may require re-resolving conflicts.`,
               onCancel={() => setShouldExit(true)}
               hasGhCli={gitHubDetection.hasGhCli}
               isGitHubRemote={gitHubDetection.isGitHubRemote}
+              hasRemote={hasRemote}
             />
           </Box>
         </Box>
