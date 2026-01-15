@@ -37,7 +37,8 @@
     "test:e2e": "bun scripts/e2e.ts",
     "typecheck": "tsc --noEmit",
     "prepare": "husky",
-    "ready": "bun scripts/ready.ts"
+    "ready": "bun scripts/ready.ts",
+    "update:ripgrep": "bun scripts/updateRipgrep.ts"
   },
   "keywords": [
     "cli",
