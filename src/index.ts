@@ -1,7 +1,6 @@
 import assert from 'assert';
 import { render } from 'ink';
 import React from 'react';
-import { runTest } from './commands/__test';
 import { runServer } from './commands/server/server';
 import { Context } from './context';
 import { GlobalData } from './globalData';
