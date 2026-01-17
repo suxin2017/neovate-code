@@ -440,15 +440,17 @@ function ToolUse({ part }: { part: ToolUsePart }) {
   const { name, displayName } = part;
   const description = part.description;
   return (
-    <Box marginTop={SPACING.MESSAGE_MARGIN_TOP}>
-      <Text>
-        <Text bold color={UI_COLORS.TOOL}>
-          {displayName || name}
-        </Text>
-        {description && (
-          <Text color={UI_COLORS.TOOL_DESCRIPTION}>({description})</Text>
-        )}
+    <Box
+      marginTop={SPACING.MESSAGE_MARGIN_TOP}
+      flexDirection="row"
+      flexWrap="wrap"
+    >
+      <Text bold color={UI_COLORS.TOOL}>
+        {displayName || name}
       </Text>
+      {description && (
+        <Text color={UI_COLORS.TOOL_DESCRIPTION}>({description})</Text>
+      )}
     </Box>
   );
 }
