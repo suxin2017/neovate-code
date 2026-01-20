@@ -885,10 +885,37 @@ class NodeHandlerRegistry {
         t0 = Date.now();
         const isGit = await isGitRepository(cwd);
         timings['isGitRepository'] = Date.now() - t0;
+
+        // Get last accessed timestamp from GlobalData
+        t0 = Date.now();
+        const globalDataPath = context.paths.getGlobalDataPath();
+        const globalData = new GlobalData({ globalDataPath });
+
+        // Get project-level settings only (not merged with global/argv)
+        const configManager = new ConfigManager(cwd, context.productName, {});
+        const settings = configManager.projectConfig;
+
+        // Handle non-git directories
         if (!isGit) {
+          const lastAccessed =
+            globalData.getProjectLastAccessed({ cwd }) || Date.now();
+          globalData.updateProjectLastAccessed({ cwd });
+          timings['globalData'] = Date.now() - t0;
+          timings['total'] = Date.now() - startTotal;
+
+          const repoData = {
+            path: cwd,
+            name: basename(cwd),
+            workspaceIds: [],
+            metadata: {
+              lastAccessed,
+              settings,
+            },
+          };
+
           return {
-            success: false,
-            error: 'Not a git repository',
+            success: true,
+            data: { repoData, timings },
           };
         }
 
@@ -915,19 +942,12 @@ class NodeHandlerRegistry {
         timings['listWorktrees'] = Date.now() - t0;
         const workspaceIds = worktrees.map((w) => w.id);
 
-        // Get last accessed timestamp from GlobalData
+        // Get last accessed timestamp from GlobalData (for git repos use gitRoot)
         t0 = Date.now();
-        const globalDataPath = context.paths.getGlobalDataPath();
-        const globalData = new GlobalData({ globalDataPath });
         const lastAccessed =
           globalData.getProjectLastAccessed({ cwd: gitRoot }) || Date.now();
-
-        // Update last accessed time
         globalData.updateProjectLastAccessed({ cwd: gitRoot });
         timings['globalData'] = Date.now() - t0;
-
-        // Get project settings from config
-        const settings = context.config;
 
         timings['total'] = Date.now() - startTotal;
 
