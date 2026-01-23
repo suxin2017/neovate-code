@@ -18,8 +18,6 @@ const SHELL_COMMANDS = [
   'ls',
   'pwd',
   'clear',
-  'exit',
-  'quit',
   'whoami',
   'date',
   'cal',
@@ -355,6 +353,12 @@ export async function runRun(context: Context) {
     if (userInput === '') {
       // Empty input, just continue to next prompt
       continue;
+    }
+
+    // Handle exit commands explicitly
+    if (userInput === 'exit' || userInput === 'quit') {
+      rl.close();
+      process.exit(0);
     }
 
     // Check if user directly typed a cd command
