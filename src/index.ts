@@ -176,7 +176,7 @@ async function runQuiet(argv: Argv, contextCreateOpts: any, cwd: string) {
     messageBus.setTransport(quietTransport);
     nodeBridge.messageBus.setTransport(nodeTransport);
 
-    messageBus.registerHandler('toolApproval', async () => {
+    messageBus.registerHandler('toolApproval', async (_params) => {
       return { approved: true };
     });
 

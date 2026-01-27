@@ -206,9 +206,11 @@ interface AppActions {
   approveToolUse: ({
     toolUse,
     category,
+    sessionId,
   }: {
     toolUse: ToolUse;
     category?: ApprovalCategory;
+    sessionId: string;
   }) => Promise<{
     approved: boolean;
     params?: Record<string, unknown>;
@@ -1057,9 +1059,11 @@ export const useAppStore = create<AppStore>()(
       approveToolUse: ({
         toolUse,
         category,
+        sessionId: _sessionId,
       }: {
         toolUse: ToolUse;
         category?: ApprovalCategory;
+        sessionId: string;
       }) => {
         const { bridge, cwd, sessionId } = get();
         return new Promise<{

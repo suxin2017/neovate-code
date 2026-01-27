@@ -2195,6 +2195,7 @@ ${diff}
           const result = await this.messageBus.request('toolApproval', {
             toolUse,
             category,
+            sessionId,
           });
 
           if (result.params || result.denyReason) {
