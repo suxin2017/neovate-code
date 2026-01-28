@@ -16,31 +16,29 @@ export type CommitAction =
 interface ActionItem {
   value: CommitAction;
   label: string;
-  icon: string;
+  key: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 const BASE_ACTIONS: ActionItem[] = [
-  { value: 'copy', label: 'Copy to clipboard', icon: '📋' },
-  { value: 'commit', label: 'Commit changes', icon: '✅' },
-  { value: 'push', label: 'Commit and push', icon: '🚀' },
-  { value: 'checkout', label: 'Create branch and commit', icon: '🌿' },
-  {
-    value: 'checkoutPush',
-    label: 'Create branch and commit and push',
-    icon: '🌿',
-  },
+  { value: 'copy', label: 'Copy to clipboard', key: '1' },
+  { value: 'commit', label: 'Commit changes', key: '2' },
+  { value: 'push', label: 'Commit and push', key: '3' },
+  { value: 'checkout', label: 'Create branch and commit', key: '4' },
+  { value: 'checkoutPush', label: 'Create branch, commit and push', key: '5' },
 ];
 
 const PR_ACTION: ActionItem = {
   value: 'checkoutPushPR',
-  label: 'Create branch, commit, push and create PR',
-  icon: '🔀',
+  label: 'Create branch, push and PR',
+  key: '6',
 };
 
 const TAIL_ACTIONS: ActionItem[] = [
-  { value: 'edit', label: 'Edit commit message', icon: '✏️' },
-  { value: 'editBranch', label: 'Edit branch name', icon: '🌿' },
-  { value: 'cancel', label: 'Cancel', icon: '❌' },
+  { value: 'edit', label: 'Edit message', key: '7' },
+  { value: 'editBranch', label: 'Edit branch name', key: '8' },
+  { value: 'cancel', label: 'Cancel', key: 'q' },
 ];
 
 export interface CommitActionSelectorProps {
@@ -50,58 +48,99 @@ export interface CommitActionSelectorProps {
   defaultAction?: CommitAction;
   hasGhCli?: boolean;
   isGitHubRemote?: boolean;
+  hasRemote?: boolean;
 }
 
 export const CommitActionSelector: React.FC<CommitActionSelectorProps> = ({
   onSelect,
   onCancel,
   disabled = false,
-  defaultAction = 'push', // Default to "Commit and push"
+  defaultAction = 'push',
   hasGhCli = false,
   isGitHubRemote = false,
+  hasRemote = true,
 }) => {
-  // Build actions list dynamically based on GitHub detection
   const actions = useMemo(() => {
     const showPRAction = hasGhCli && isGitHubRemote;
-    if (showPRAction) {
-      return [...BASE_ACTIONS, PR_ACTION, ...TAIL_ACTIONS];
-    }
-    return [...BASE_ACTIONS, ...TAIL_ACTIONS];
-  }, [hasGhCli, isGitHubRemote]);
+    const remoteRequiredActions = ['push', 'checkoutPush', 'checkoutPushPR'];
+    const noRemoteReason = 'no remote';
 
-  const defaultIndex = actions.findIndex((a) => a.value === defaultAction);
+    const baseActionsWithRemoteCheck = BASE_ACTIONS.map((action) => {
+      if (!hasRemote && remoteRequiredActions.includes(action.value)) {
+        return { ...action, disabled: true, disabledReason: noRemoteReason };
+      }
+      return action;
+    });
+
+    let allActions = baseActionsWithRemoteCheck;
+    if (showPRAction) {
+      const prActionWithCheck = !hasRemote
+        ? { ...PR_ACTION, disabled: true, disabledReason: noRemoteReason }
+        : PR_ACTION;
+      allActions = [...allActions, prActionWithCheck];
+    }
+
+    // Re-number keys based on final position
+    const numbered = allActions.map((a, i) => ({ ...a, key: String(i + 1) }));
+    return [...numbered, ...TAIL_ACTIONS];
+  }, [hasGhCli, isGitHubRemote, hasRemote]);
+
+  const defaultIndex = actions.findIndex(
+    (a) => a.value === defaultAction && !a.disabled,
+  );
   const [selectedIndex, setSelectedIndex] = useState(
-    defaultIndex >= 0 ? defaultIndex : 2,
+    defaultIndex >= 0
+      ? defaultIndex
+      : actions.findIndex((a) => !a.disabled) || 0,
   );
 
   useInput(
     (input, key) => {
       if (disabled) return;
 
-      if (key.escape) {
+      if (key.escape || input === 'q') {
         onCancel();
         return;
       }
 
       if (key.return) {
-        onSelect(actions[selectedIndex].value);
+        const selectedAction = actions[selectedIndex];
+        if (!selectedAction.disabled) {
+          onSelect(selectedAction.value);
+        }
         return;
       }
 
       if (key.upArrow) {
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : actions.length - 1));
+        setSelectedIndex((prev) => {
+          let newIndex = prev - 1;
+          if (newIndex < 0) newIndex = actions.length - 1;
+          while (actions[newIndex]?.disabled && newIndex !== prev) {
+            newIndex--;
+            if (newIndex < 0) newIndex = actions.length - 1;
+          }
+          return newIndex;
+        });
         return;
       }
 
       if (key.downArrow) {
-        setSelectedIndex((prev) => (prev < actions.length - 1 ? prev + 1 : 0));
+        setSelectedIndex((prev) => {
+          let newIndex = prev + 1;
+          if (newIndex >= actions.length) newIndex = 0;
+          while (actions[newIndex]?.disabled && newIndex !== prev) {
+            newIndex++;
+            if (newIndex >= actions.length) newIndex = 0;
+          }
+          return newIndex;
+        });
         return;
       }
 
-      // Quick select by number (1-9)
-      const num = Number.parseInt(input, 10);
-      if (num >= 1 && num <= actions.length) {
-        onSelect(actions[num - 1].value);
+      // Quick select by key
+      const action = actions.find((a) => a.key === input);
+      if (action && !action.disabled) {
+        onSelect(action.value);
       }
     },
     { isActive: !disabled },
@@ -109,29 +148,31 @@ export const CommitActionSelector: React.FC<CommitActionSelectorProps> = ({
 
   return (
     <Box flexDirection="column">
-      <Text bold>What would you like to do?</Text>
-      <Box flexDirection="column" marginTop={1}>
+      <Text>Actions:</Text>
+      <Box flexDirection="column">
         {actions.map((action, index) => {
           const isSelected = index === selectedIndex;
+          const isDisabled = action.disabled || disabled;
+          const prefix = isSelected ? '>' : ' ';
+          const keyLabel = `[${action.key}]`;
+
           return (
             <Box key={action.value}>
               <Text
-                color={isSelected ? 'cyan' : undefined}
-                inverse={isSelected}
-                dimColor={disabled}
+                color={isSelected ? 'cyan' : isDisabled ? 'gray' : undefined}
+                dimColor={isDisabled}
               >
-                {isSelected ? '● ' : '○ '}
-                {action.icon} {action.label}
+                {prefix} {keyLabel} {action.label.padEnd(28)}
+                {isDisabled && action.disabledReason && (
+                  <Text dimColor>({action.disabledReason})</Text>
+                )}
               </Text>
             </Box>
           );
         })}
       </Box>
-      <Box marginTop={1}>
-        <Text color="gray" dimColor>
-          ↑↓ Navigate Enter Select Esc Cancel
-        </Text>
-      </Box>
+      <Text> </Text>
+      <Text dimColor>↑↓ select enter confirm q cancel</Text>
     </Box>
   );
 };

@@ -11,82 +11,80 @@ import {
   truncateOutput,
 } from './bash';
 
+describe('hasCommandSubstitution', () => {
+  describe('should detect command substitution', () => {
+    test('unquoted $() substitution', () => {
+      expect(hasCommandSubstitution('echo $(whoami)')).toBe(true);
+    });
+
+    test('unquoted backticks', () => {
+      expect(hasCommandSubstitution('echo `whoami`')).toBe(true);
+    });
+
+    test('$() inside double quotes', () => {
+      expect(hasCommandSubstitution('echo "$(whoami)"')).toBe(true);
+    });
+
+    test('substitution after quoted section', () => {
+      expect(hasCommandSubstitution("echo 'foo' $(cmd)")).toBe(true);
+    });
+  });
+
+  describe('should allow safe patterns', () => {
+    test('single-quoted $() literal', () => {
+      expect(hasCommandSubstitution("echo '$(whoami)'")).toBe(false);
+    });
+
+    test('single-quoted backticks', () => {
+      expect(hasCommandSubstitution("echo '`test`'")).toBe(false);
+    });
+
+    test('escaped backticks in double quotes', () => {
+      expect(hasCommandSubstitution('echo "\\`test\\`"')).toBe(false);
+    });
+
+    test('markdown code fence pattern', () => {
+      expect(hasCommandSubstitution('echo "\\`\\`\\`js\\`\\`\\`"')).toBe(false);
+    });
+
+    test('escaped $( in double quotes', () => {
+      expect(hasCommandSubstitution('echo "\\$(not substitution)"')).toBe(
+        false,
+      );
+    });
+
+    test('no substitution at all', () => {
+      expect(hasCommandSubstitution('echo hello world')).toBe(false);
+    });
+
+    test('dollar sign without parenthesis', () => {
+      expect(hasCommandSubstitution('echo $HOME')).toBe(false);
+    });
+  });
+
+  describe('edge cases', () => {
+    test('mixed quotes with substitution outside', () => {
+      expect(
+        hasCommandSubstitution('echo \'safe\' "also safe" $(danger)'),
+      ).toBe(true);
+    });
+
+    test('nested quotes', () => {
+      expect(hasCommandSubstitution('echo "it\'s fine"')).toBe(false);
+    });
+
+    test('empty string', () => {
+      expect(hasCommandSubstitution('')).toBe(false);
+    });
+  });
+});
+
 describe('bash tool with run_in_background', () => {
   test('should handle run_in_background=true correctly', async () => {
     const backgroundTaskManager = new BackgroundTaskManager();
     const bashTool = createBashTool({
       cwd: process.cwd(),
       backgroundTaskManager,
-    });
-
-    describe('hasCommandSubstitution', () => {
-      describe('should detect command substitution', () => {
-        test('unquoted $() substitution', () => {
-          expect(hasCommandSubstitution('echo $(whoami)')).toBe(true);
-        });
-
-        test('unquoted backticks', () => {
-          expect(hasCommandSubstitution('echo `whoami`')).toBe(true);
-        });
-
-        test('$() inside double quotes', () => {
-          expect(hasCommandSubstitution('echo "$(whoami)"')).toBe(true);
-        });
-
-        test('substitution after quoted section', () => {
-          expect(hasCommandSubstitution("echo 'foo' $(cmd)")).toBe(true);
-        });
-      });
-
-      describe('should allow safe patterns', () => {
-        test('single-quoted $() literal', () => {
-          expect(hasCommandSubstitution("echo '$(whoami)'")).toBe(false);
-        });
-
-        test('single-quoted backticks', () => {
-          expect(hasCommandSubstitution("echo '`test`'")).toBe(false);
-        });
-
-        test('escaped backticks in double quotes', () => {
-          expect(hasCommandSubstitution('echo "\\`test\\`"')).toBe(false);
-        });
-
-        test('markdown code fence pattern', () => {
-          expect(hasCommandSubstitution('echo "\\`\\`\\`js\\`\\`\\`"')).toBe(
-            false,
-          );
-        });
-
-        test('escaped $( in double quotes', () => {
-          expect(hasCommandSubstitution('echo "\\$(not substitution)"')).toBe(
-            false,
-          );
-        });
-
-        test('no substitution at all', () => {
-          expect(hasCommandSubstitution('echo hello world')).toBe(false);
-        });
-
-        test('dollar sign without parenthesis', () => {
-          expect(hasCommandSubstitution('echo $HOME')).toBe(false);
-        });
-      });
-
-      describe('edge cases', () => {
-        test('mixed quotes with substitution outside', () => {
-          expect(
-            hasCommandSubstitution('echo \'safe\' "also safe" $(danger)'),
-          ).toBe(true);
-        });
-
-        test('nested quotes', () => {
-          expect(hasCommandSubstitution('echo "it\'s fine"')).toBe(false);
-        });
-
-        test('empty string', () => {
-          expect(hasCommandSubstitution('')).toBe(false);
-        });
-      });
     });
 
     const result1 = await bashTool.execute({

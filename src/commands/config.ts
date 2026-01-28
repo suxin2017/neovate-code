@@ -29,6 +29,7 @@ Available Configuration Keys:
   quiet                                 Suppress verbose output (boolean, default: false)
   approvalMode                          Approval mode for operations (default|autoEdit|yolo, default: default)
   plugins                               Array of plugin names to load
+  skills                                Array of extra SKILL.md paths or directories
   mcpServers                            MCP (Message Control Protocol) server configurations (object)
   httpProxy                             Global HTTP/HTTPS proxy URL (e.g., http://127.0.0.1:7890)
   provider.{id}.options.baseURL         Custom API endpoint for specific provider

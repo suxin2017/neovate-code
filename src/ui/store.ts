@@ -206,9 +206,11 @@ interface AppActions {
   approveToolUse: ({
     toolUse,
     category,
+    sessionId,
   }: {
     toolUse: ToolUse;
     category?: ApprovalCategory;
+    sessionId: string;
   }) => Promise<{
     approved: boolean;
     params?: Record<string, unknown>;
@@ -347,7 +349,7 @@ export const useAppStore = create<AppStore>()(
           model: response.data.model,
           planModel: response.data.planModel,
           initializeModelError: response.data.initializeModelError,
-          modelContextLimit: response.data.model?.model?.limit.context || 0,
+          modelContextLimit: response.data.model?.model?.limit?.context || 0,
           providers: response.data.providers,
           sessionId: opts.sessionId,
           messages: opts.messages,
@@ -501,8 +503,21 @@ export const useAppStore = create<AppStore>()(
         } = get();
 
         if (initializeModelError) {
-          get().setInputError(initializeModelError);
-          return;
+          // Allow /model, /login, /logout to bypass the error check
+          // since these commands help users fix their configuration
+          const bypassCommands = ['model', 'login', 'logout'];
+          if (isSlashCommand(message)) {
+            const parsed = parseSlashCommand(message);
+            if (bypassCommands.includes(parsed.command)) {
+              // Allow these commands to proceed
+            } else {
+              get().setInputError(initializeModelError);
+              return;
+            }
+          } else {
+            get().setInputError(initializeModelError);
+            return;
+          }
         }
 
         if (brainstormMode) {
@@ -1035,6 +1050,8 @@ export const useAppStore = create<AppStore>()(
             thinking: currentModel?.thinkingConfig
               ? { effort: 'low' }
               : undefined,
+            // Clear initializeModelError after successfully changing model
+            initializeModelError: null,
           });
         }
       },
@@ -1042,9 +1059,11 @@ export const useAppStore = create<AppStore>()(
       approveToolUse: ({
         toolUse,
         category,
+        sessionId: _sessionId,
       }: {
         toolUse: ToolUse;
         category?: ApprovalCategory;
+        sessionId: string;
       }) => {
         const { bridge, cwd, sessionId } = get();
         return new Promise<{

@@ -47,6 +47,10 @@ class NodeHandlerRegistry {
   private contextCreateOpts: any;
   private contexts = new Map<string, Context>();
   private abortControllers = new Map<string, AbortController>();
+  private skillPreviews = new Map<
+    string,
+    import('./skill').PreviewSkillsResult
+  >();
 
   constructor(messageBus: MessageBus, contextCreateOpts: any) {
     this.messageBus = messageBus;
@@ -466,6 +470,82 @@ class NodeHandlerRegistry {
       };
     });
 
+    this.messageBus.registerHandler('models.test', async (data) => {
+      const { model: modelStr } = data;
+      const cwd = data.cwd || require('os').tmpdir();
+      const timeout = data.timeout ?? 15000; // Default 15 seconds
+      const prompt = data.prompt ?? 'hi';
+      const useTempContext = !data.cwd;
+      try {
+        const context = await this.getContext(cwd);
+        const { model, error } = await resolveModelWithContext(
+          modelStr,
+          context,
+        );
+
+        if (error || !model) {
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Model not found',
+          };
+        }
+
+        // Test the model by sending a simple request with no system prompt
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error(`Model test timed out after ${timeout}ms`)),
+            timeout,
+          );
+        });
+
+        const startTime = Date.now();
+        const result = await Promise.race([
+          query({
+            userPrompt: prompt,
+            model,
+            systemPrompt: '',
+            thinking: false, // Disable thinking for faster test
+          }),
+          timeoutPromise,
+        ]);
+        const responseTime = Date.now() - startTime;
+
+        // Cleanup temp context to avoid memory leak
+        if (useTempContext) {
+          await this.clearContext(cwd);
+        }
+
+        if (!result.success) {
+          return {
+            success: false,
+            error: result.error?.message || 'Model test failed',
+          };
+        }
+
+        return {
+          success: true,
+          data: {
+            model: modelStr,
+            provider: model.provider.name,
+            modelName: model.model.name,
+            prompt,
+            response: result.data?.text || '',
+            responseTime,
+            usage: result.data?.usage || null,
+          },
+        };
+      } catch (error: any) {
+        // Cleanup temp context on error as well
+        if (useTempContext) {
+          await this.clearContext(cwd).catch(() => {});
+        }
+        return {
+          success: false,
+          error: error.message || 'Failed to test model',
+        };
+      }
+    });
+
     //////////////////////////////////////////////
     // outputStyles
     this.messageBus.registerHandler('outputStyles.list', async (data) => {
@@ -691,50 +771,199 @@ class NodeHandlerRegistry {
       }
     });
 
+    this.messageBus.registerHandler('projects.list', async (data) => {
+      const { cwd, includeSessionDetails = false } = data;
+      try {
+        const context = await this.getContext(cwd);
+        const { GlobalData } = await import('./globalData');
+        const { Paths } = await import('./paths');
+        const { existsSync } = await import('fs');
+
+        const globalDataPath = context.paths.getGlobalDataPath();
+        const globalData = new GlobalData({ globalDataPath });
+
+        // Read all projects from GlobalData
+        const allData = globalData['readData']();
+        const allProjectPaths = Object.keys(allData.projects || {});
+
+        // Filter out projects that don't exist on disk
+        const existingProjectPaths = allProjectPaths.filter((projectPath) =>
+          existsSync(projectPath),
+        );
+
+        const projects = existingProjectPaths.map((projectPath) => {
+          // Get session info for this project
+          const projectPaths = new Paths({
+            productName: context.productName,
+            cwd: projectPath,
+          });
+
+          let sessionCount = 0;
+          let lastAccessed: number | null = null;
+          let sessions: Array<{
+            sessionId: string;
+            modified: Date;
+            created: Date;
+            messageCount: number;
+            summary: string;
+          }> = [];
+
+          if (existsSync(projectPaths.globalProjectDir)) {
+            const allSessions = projectPaths.getAllSessions();
+            sessionCount = allSessions.length;
+
+            // Use latest session's modified time as lastAccessed
+            if (allSessions.length > 0) {
+              lastAccessed = allSessions[0].modified.getTime();
+            }
+
+            if (includeSessionDetails) {
+              sessions = allSessions;
+            }
+          }
+
+          const result: {
+            path: string;
+            lastAccessed: number | null;
+            sessionCount: number;
+            sessions?: typeof sessions;
+          } = {
+            path: projectPath,
+            lastAccessed,
+            sessionCount,
+          };
+
+          if (includeSessionDetails) {
+            result.sessions = sessions;
+          }
+
+          return result;
+        });
+
+        // Filter out projects with no sessions and sort by lastAccessed (most recent first)
+        const projectsWithSessions = projects
+          .filter((project) => project.sessionCount > 0)
+          .sort((a, b) => {
+            if (a.lastAccessed === null && b.lastAccessed === null) return 0;
+            if (a.lastAccessed === null) return 1;
+            if (b.lastAccessed === null) return -1;
+            return b.lastAccessed - a.lastAccessed;
+          });
+
+        return {
+          success: true,
+          data: {
+            projects: projectsWithSessions,
+          },
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.message || 'Failed to list projects',
+        };
+      }
+    });
+
     this.messageBus.registerHandler('project.getRepoInfo', async (data) => {
       const { cwd } = data;
       try {
+        const { existsSync } = await import('fs');
+
+        // Check if cwd exists
+        if (!existsSync(cwd)) {
+          return {
+            success: false,
+            error: `Directory does not exist: ${cwd}`,
+          };
+        }
+
+        const timings: Record<string, number> = {};
+        const startTotal = Date.now();
+
+        let t0 = Date.now();
         const context = await this.getContext(cwd);
+        timings['getContext'] = Date.now() - t0;
+
+        t0 = Date.now();
         const { getGitRoot, listWorktrees, isGitRepository } = await import(
           './worktree'
         );
-        const { getGitRemoteUrl, getDefaultBranch, getGitSyncStatus } =
-          await import('./utils/git');
+        const { getGitRemoteUrl, getDefaultBranch } = await import(
+          './utils/git'
+        );
         const { GlobalData } = await import('./globalData');
         const { basename } = await import('pathe');
+        timings['imports'] = Date.now() - t0;
 
         // Check if it's a git repository
+        t0 = Date.now();
         const isGit = await isGitRepository(cwd);
+        timings['isGitRepository'] = Date.now() - t0;
+
+        // Get last accessed timestamp from GlobalData
+        t0 = Date.now();
+        const globalDataPath = context.paths.getGlobalDataPath();
+        const globalData = new GlobalData({ globalDataPath });
+
+        // Get project-level settings only (not merged with global/argv)
+        const configManager = new ConfigManager(cwd, context.productName, {});
+        const settings = configManager.projectConfig;
+
+        // Handle non-git directories
         if (!isGit) {
+          const lastAccessed =
+            globalData.getProjectLastAccessed({ cwd }) || Date.now();
+          globalData.updateProjectLastAccessed({ cwd });
+          timings['globalData'] = Date.now() - t0;
+          timings['total'] = Date.now() - startTotal;
+
+          const repoData = {
+            path: cwd,
+            name: basename(cwd),
+            workspaceIds: [`${cwd}:default`],
+            metadata: {
+              lastAccessed,
+              settings,
+            },
+          };
+
           return {
-            success: false,
-            error: 'Not a git repository',
+            success: true,
+            data: { repoData, timings },
           };
         }
 
         // Get git root path
+        t0 = Date.now();
         const gitRoot = await getGitRoot(cwd);
+        timings['getGitRoot'] = Date.now() - t0;
 
         // Get git remote information
+        t0 = Date.now();
         const originUrl = await getGitRemoteUrl(gitRoot);
+        timings['getGitRemoteUrl'] = Date.now() - t0;
+
+        t0 = Date.now();
         const defaultBranch = await getDefaultBranch(gitRoot);
-        const syncStatus = await getGitSyncStatus(gitRoot);
+        timings['getDefaultBranch'] = Date.now() - t0;
+
+        // NOTE: getGitSyncStatus removed - it does `git fetch` which is slow (5+ seconds)
+        // If needed in the future, make it opt-in via a parameter
 
         // Get workspace names
+        t0 = Date.now();
         const worktrees = await listWorktrees(gitRoot);
+        timings['listWorktrees'] = Date.now() - t0;
         const workspaceIds = worktrees.map((w) => w.id);
 
-        // Get last accessed timestamp from GlobalData
-        const globalDataPath = context.paths.getGlobalDataPath();
-        const globalData = new GlobalData({ globalDataPath });
+        // Get last accessed timestamp from GlobalData (for git repos use gitRoot)
+        t0 = Date.now();
         const lastAccessed =
           globalData.getProjectLastAccessed({ cwd: gitRoot }) || Date.now();
-
-        // Update last accessed time
         globalData.updateProjectLastAccessed({ cwd: gitRoot });
+        timings['globalData'] = Date.now() - t0;
 
-        // Get project settings from config
-        const settings = context.config;
+        timings['total'] = Date.now() - startTotal;
 
         const repoData = {
           path: gitRoot,
@@ -747,13 +976,12 @@ class NodeHandlerRegistry {
           gitRemote: {
             originUrl,
             defaultBranch,
-            syncStatus,
           },
         };
 
         return {
           success: true,
-          data: { repoData },
+          data: { repoData, timings },
         };
       } catch (error: any) {
         return {
@@ -766,6 +994,16 @@ class NodeHandlerRegistry {
     this.messageBus.registerHandler('project.workspaces.list', async (data) => {
       const { cwd } = data;
       try {
+        const { existsSync, statSync } = await import('fs');
+
+        // Check if cwd exists
+        if (!existsSync(cwd)) {
+          return {
+            success: false,
+            error: `Directory does not exist: ${cwd}`,
+          };
+        }
+
         const context = await this.getContext(cwd);
         const { getGitRoot, listWorktrees, isGitRepository } = await import(
           './worktree'
@@ -774,9 +1012,41 @@ class NodeHandlerRegistry {
         // Check if it's a git repository
         const isGit = await isGitRepository(cwd);
         if (!isGit) {
+          // Return default workspace for non-git directories
+          let createdAt = Date.now();
+          try {
+            const stats = statSync(cwd);
+            createdAt = stats.birthtimeMs || stats.ctimeMs;
+          } catch {
+            // Use current time as fallback
+          }
+
+          const defaultWorkspace = {
+            id: `${cwd}:default`,
+            repoPath: cwd,
+            branch: 'default',
+            worktreePath: cwd,
+            sessionIds: context.paths.getAllSessions().map((s) => s.sessionId),
+            gitState: {
+              currentCommit: '',
+              isDirty: false,
+              pendingChanges: [],
+            },
+            metadata: {
+              createdAt,
+              description: '',
+              status: 'active' as const,
+            },
+            context: {
+              activeFiles: [],
+              settings: context.config,
+              preferences: {},
+            },
+          };
+
           return {
-            success: false,
-            error: 'Not a git repository',
+            success: true,
+            data: { workspaces: [defaultWorkspace] },
           };
         }
 
@@ -1163,6 +1433,18 @@ class NodeHandlerRegistry {
     this.messageBus.registerHandler('project.generateCommit', async (data) => {
       const { cwd, language = 'English', systemPrompt, model } = data;
       try {
+        // Validate model if explicitly provided
+        if (model) {
+          const context = await this.getContext(cwd);
+          const { error } = await resolveModelWithContext(model, context);
+          if (error) {
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
+        }
+
         const { getStagedDiff, getStagedFileList } = await import(
           './utils/git'
         );
@@ -1265,6 +1547,7 @@ ${diff}
           hasUncommittedChanges,
           isGitUserConfigured,
           getUnstagedFiles,
+          hasOriginRemote,
         } = await import('./utils/git');
         const { getStagedFileList } = await import('./utils/git');
         const { existsSync } = await import('fs');
@@ -1284,6 +1567,7 @@ ${diff}
               isUserConfigured: { name: false, email: false },
               isMerging: false,
               unstagedFiles: [],
+              hasRemote: false,
             },
           };
         }
@@ -1301,19 +1585,27 @@ ${diff}
               isUserConfigured: { name: false, email: false },
               isMerging: false,
               unstagedFiles: [],
+              hasRemote: false,
             },
           };
         }
 
         // Get all status information in parallel
-        const [hasChanges, userConfig, stagedFiles, gitRoot, unstagedFiles] =
-          await Promise.all([
-            hasUncommittedChanges(cwd),
-            isGitUserConfigured(cwd),
-            getStagedFileList(cwd),
-            getGitRoot(cwd),
-            getUnstagedFiles(cwd),
-          ]);
+        const [
+          hasChanges,
+          userConfig,
+          stagedFiles,
+          gitRoot,
+          unstagedFiles,
+          remoteExists,
+        ] = await Promise.all([
+          hasUncommittedChanges(cwd),
+          isGitUserConfigured(cwd),
+          getStagedFileList(cwd),
+          getGitRoot(cwd),
+          getUnstagedFiles(cwd),
+          hasOriginRemote(cwd),
+        ]);
 
         // Check if repository is in merge state
         const isMerging = existsSync(join(gitRoot, '.git', 'MERGE_HEAD'));
@@ -1328,6 +1620,7 @@ ${diff}
             isUserConfigured: userConfig,
             isMerging,
             unstagedFiles,
+            hasRemote: remoteExists,
           },
         };
       } catch (error: any) {
@@ -1902,6 +2195,7 @@ ${diff}
           const result = await this.messageBus.request('toolApproval', {
             toolUse,
             category,
+            sessionId,
           });
 
           if (result.params || result.denyReason) {
@@ -2254,6 +2548,33 @@ ${diff}
       };
     });
 
+    this.messageBus.registerHandler('sessions.remove', async (data) => {
+      const { cwd, sessionId } = data;
+      try {
+        const context = await this.getContext(cwd);
+        const { unlinkSync, existsSync } = await import('fs');
+        const logPath = context.paths.getSessionLogPath(sessionId);
+
+        if (!existsSync(logPath)) {
+          return {
+            success: false,
+            error: `Session "${sessionId}" not found`,
+          };
+        }
+
+        unlinkSync(logPath);
+
+        return {
+          success: true,
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.message || 'Failed to remove session',
+        };
+      }
+    });
+
     //////////////////////////////////////////////
     // sessions
     this.messageBus.registerHandler('sessions.list', async (data) => {
@@ -2278,6 +2599,187 @@ ${diff}
           logFile: context.paths.getSessionLogPath(sessionId),
         },
       };
+    });
+
+    //////////////////////////////////////////////
+    // skills
+    this.messageBus.registerHandler('skills.list', async (data) => {
+      const { cwd } = data;
+      try {
+        const context = await this.getContext(cwd);
+        const { SkillManager } = await import('./skill');
+        const skillManager = new SkillManager({ context });
+        await skillManager.loadSkills();
+        return {
+          success: true,
+          data: {
+            skills: skillManager.getSkills(),
+            errors: skillManager.getErrors(),
+          },
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          data: {
+            skills: [],
+            errors: [
+              { path: cwd, message: error.message || 'Failed to list skills' },
+            ],
+          },
+        };
+      }
+    });
+
+    this.messageBus.registerHandler('skills.get', async (data) => {
+      const { cwd, name } = data;
+      try {
+        const context = await this.getContext(cwd);
+        const { SkillManager } = await import('./skill');
+        const skillManager = new SkillManager({ context });
+        await skillManager.loadSkills();
+        const skill = skillManager.getSkill(name);
+        if (!skill) {
+          return {
+            success: false,
+            error: `Skill "${name}" not found`,
+          };
+        }
+        const body = await skillManager.readSkillBody(skill);
+        return {
+          success: true,
+          data: {
+            skill: { ...skill, body },
+          },
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.message || 'Failed to get skill',
+        };
+      }
+    });
+
+    this.messageBus.registerHandler('skills.add', async (data) => {
+      const { cwd, source, global, claude, overwrite, name, targetDir } = data;
+      try {
+        const context = await this.getContext(cwd);
+        const { SkillManager } = await import('./skill');
+        const skillManager = new SkillManager({ context });
+        const result = await skillManager.addSkill(source, {
+          global,
+          claude,
+          overwrite,
+          name,
+          targetDir,
+        });
+        return {
+          success: true,
+          data: result,
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.message || 'Failed to add skill',
+        };
+      }
+    });
+
+    this.messageBus.registerHandler('skills.remove', async (data) => {
+      const { cwd, name, targetDir } = data;
+      try {
+        const context = await this.getContext(cwd);
+        const { SkillManager } = await import('./skill');
+        const skillManager = new SkillManager({ context });
+        await skillManager.loadSkills();
+        const result = await skillManager.removeSkill(name, targetDir);
+        return result;
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.message || 'Failed to remove skill',
+        };
+      }
+    });
+
+    this.messageBus.registerHandler('skills.preview', async (data) => {
+      const { cwd, source } = data;
+      try {
+        const context = await this.getContext(cwd);
+        const { SkillManager } = await import('./skill');
+        const skillManager = new SkillManager({ context });
+        const preview = await skillManager.previewSkills(source);
+        const previewId = randomUUID();
+        this.skillPreviews.set(previewId, preview);
+        return {
+          success: true,
+          data: {
+            previewId,
+            skills: preview.skills.map((s) => ({
+              name: s.name,
+              description: s.description,
+              skillPath: s.skillPath,
+            })),
+            errors: preview.errors,
+          },
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.message || 'Failed to preview skills',
+        };
+      }
+    });
+
+    this.messageBus.registerHandler('skills.install', async (data) => {
+      const {
+        cwd,
+        previewId,
+        selectedSkills,
+        source,
+        global,
+        claude,
+        overwrite,
+        name,
+        targetDir,
+      } = data;
+      try {
+        const preview = this.skillPreviews.get(previewId);
+        if (!preview) {
+          return {
+            success: false,
+            error: 'Preview not found or expired',
+          };
+        }
+        const context = await this.getContext(cwd);
+        const { SkillManager } = await import('./skill');
+        const skillManager = new SkillManager({ context });
+        const skillsToInstall = preview.skills.filter((s) =>
+          selectedSkills.includes(s.name),
+        );
+        const result = await skillManager.installFromPreview(
+          preview,
+          skillsToInstall,
+          source,
+          {
+            global,
+            claude,
+            overwrite,
+            name,
+            targetDir,
+          },
+        );
+        skillManager.cleanupPreview(preview);
+        this.skillPreviews.delete(previewId);
+        return {
+          success: true,
+          data: result,
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.message || 'Failed to install skills',
+        };
+      }
     });
 
     //////////////////////////////////////////////
@@ -2460,12 +2962,12 @@ ${diff}
         userPrompt: message,
         cwd,
         systemPrompt:
-          "Analyze if this message indicates a new conversation topic. If it does, extract a 2-3 word title that captures the new topic. Format your response as a JSON object with one field: 'title' (string).",
+          "Extract a concise 2-5 word title that captures the main topic or intent of this message. Format your response as a JSON object with one field: 'title' (string).",
         responseFormat: {
           type: 'json',
           schema: z.toJSONSchema(
             z.object({
-              title: z.string().nullable(),
+              title: z.string(),
             }),
           ),
         },
@@ -2589,6 +3091,28 @@ ${diff}
       child.unref();
 
       return { success: true };
+    });
+
+    this.messageBus.registerHandler('utils.playSound', async (data) => {
+      const { sound, volume = 1.0 } = data;
+      try {
+        const { playSound, SOUND_PRESETS } = await import('./utils/sound');
+
+        // Check if sound is a preset name
+        const soundName =
+          sound in SOUND_PRESETS
+            ? SOUND_PRESETS[sound as keyof typeof SOUND_PRESETS]
+            : sound;
+
+        await playSound(soundName, volume);
+
+        return { success: true };
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.message || 'Failed to play sound',
+        };
+      }
     });
 
     this.messageBus.registerHandler('utils.detectApps', async (data) => {
@@ -2732,6 +3256,10 @@ function normalizeProviders(providers: ProvidersMap, context: Context) {
         doc: provider.doc,
         env: provider.env,
         apiEnv: provider.apiEnv,
+        api: provider.api,
+        options: provider.options,
+        source: provider.source,
+        apiFormat: provider.apiFormat,
         validEnvs,
         hasApiKey,
         maskedApiKey,

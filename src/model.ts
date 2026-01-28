@@ -80,13 +80,14 @@ export interface Provider {
       setGlobalConfig: (key: string, value: string, isGlobal: boolean) => void;
     },
   ) => Promise<LanguageModelV2> | LanguageModelV2;
-  createModelType?: 'anthropic';
+  apiFormat?: 'anthropic' | 'openai' | 'responses';
   options?: {
     baseURL?: string;
     apiKey?: string;
     headers?: Record<string, string>;
     httpProxy?: string;
   };
+  source?: 'built-in' | string;
 }
 
 import { createProxyFetch } from './utils/proxy';
@@ -290,6 +291,19 @@ export const models: ModelMap = {
     release_date: '2025-11-06',
     last_updated: '2025-11-06',
     modalities: { input: ['text'], output: ['text'] },
+    open_weights: true,
+    limit: { context: 262144, output: 262144 },
+  },
+  'kimi-k2.5': {
+    name: 'Kimi K2.5',
+    attachment: true,
+    reasoning: true,
+    temperature: true,
+    tool_call: true,
+    knowledge: '2025-01',
+    release_date: '2026-01-27',
+    last_updated: '2026-01-27',
+    modalities: { input: ['text', 'image', 'video'], output: ['text'] },
     open_weights: true,
     limit: { context: 262144, output: 262144 },
   },
@@ -699,14 +713,14 @@ export const models: ModelMap = {
     limit: { context: 400000, output: 128000 },
   },
   'gpt-5.2-codex': {
-    name: 'GPT-5.1-Codex',
-    attachment: false,
+    name: 'GPT-5.2-Codex',
+    attachment: true,
     reasoning: true,
-    temperature: false,
+    temperature: true,
     tool_call: true,
-    knowledge: '2024-09-30',
-    release_date: '2025-11-13',
-    last_updated: '2025-11-13',
+    knowledge: '2025-08-31',
+    release_date: '2026-01-14',
+    last_updated: '2026-01-14',
     modalities: {
       input: ['text', 'image'],
       output: ['text'],
@@ -1119,7 +1133,7 @@ export const models: ModelMap = {
   },
 };
 
-function getProviderBaseURL(provider: Provider) {
+export function getProviderBaseURL(provider: Provider) {
   if (provider.options?.baseURL) {
     return provider.options.baseURL;
   }
@@ -1238,6 +1252,7 @@ export const providers: ProvidersMap = {
   'github-copilot': {
     id: 'github-copilot',
     name: 'GitHub Copilot',
+    source: 'built-in',
     env: [],
     apiEnv: [],
     api: 'https://api.githubcopilot.com',
@@ -1306,6 +1321,7 @@ export const providers: ProvidersMap = {
   },
   openai: {
     id: 'openai',
+    source: 'built-in',
     env: ['OPENAI_API_KEY'],
     apiEnv: ['OPENAI_API_BASE'],
     name: 'OpenAI',
@@ -1326,11 +1342,13 @@ export const providers: ProvidersMap = {
       'gpt-5-codex': models['gpt-5-codex'],
       'gpt-5.2': models['gpt-5.2'],
       'gpt-5.2-pro': models['gpt-5.2-pro'],
+      'gpt-5.2-codex': models['gpt-5.2-codex'],
     },
     createModel: openaiModelCreator,
   },
   google: {
     id: 'google',
+    source: 'built-in',
     env: ['GOOGLE_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY'],
     apiEnv: ['GOOGLE_GENERATIVE_AI_API_BASE'],
     name: 'Google',
@@ -1356,6 +1374,7 @@ export const providers: ProvidersMap = {
   },
   deepseek: {
     id: 'deepseek',
+    source: 'built-in',
     env: ['DEEPSEEK_API_KEY'],
     name: 'DeepSeek',
     api: 'https://api.deepseek.com',
@@ -1369,6 +1388,7 @@ export const providers: ProvidersMap = {
   },
   xai: {
     id: 'xai',
+    source: 'built-in',
     env: ['XAI_API_KEY'],
     apiEnv: ['XAI_BASE_URL'],
     name: 'xAI',
@@ -1394,6 +1414,7 @@ export const providers: ProvidersMap = {
   },
   anthropic: {
     id: 'anthropic',
+    source: 'built-in',
     env: ['ANTHROPIC_API_KEY'],
     apiEnv: ['ANTHROPIC_API_BASE'],
     name: 'Anthropic',
@@ -1409,11 +1430,12 @@ export const providers: ProvidersMap = {
       'claude-haiku-4-5': models['claude-haiku-4-5'],
       'claude-opus-4-5': models['claude-opus-4-5'],
     },
-    createModelType: 'anthropic',
+    apiFormat: 'anthropic',
     createModel: defaultAnthropicModelCreator,
   },
   aihubmix: {
     id: 'aihubmix',
+    source: 'built-in',
     env: ['AIHUBMIX_API_KEY'],
     name: 'AIHubMix',
     api: 'https://aihubmix.com/v1',
@@ -1459,6 +1481,7 @@ export const providers: ProvidersMap = {
   },
   openrouter: {
     id: 'openrouter',
+    source: 'built-in',
     env: ['OPENROUTER_API_KEY', 'OPEN_ROUTER_API_KEY'],
     name: 'OpenRouter',
     doc: 'https://openrouter.ai/docs/models',
@@ -1495,11 +1518,13 @@ export const providers: ProvidersMap = {
       'openai/gpt-5-codex': models['gpt-5-codex'],
       'openai/gpt-5.2': models['gpt-5.2'],
       'openai/gpt-5.2-pro': models['gpt-5.2-pro'],
+      'openai/gpt-5.2-codex': models['gpt-5.2-codex'],
       'google/gemini-3-flash-preview': models['gemini-3-flash-preview'],
       'google/gemini-3-pro-preview': models['gemini-3-pro-preview'],
       'moonshotai/kimi-k2': models['kimi-k2'],
       'moonshotai/kimi-k2-0905': models['kimi-k2-0905'],
       'moonshotai/kimi-k2-thinking': models['kimi-k2-thinking'],
+      'moonshotai/kimi-k2.5': models['kimi-k2.5'],
       'qwen/qwen3-coder': models['qwen3-coder-480b-a35b-instruct'],
       'qwen/qwen3-max': models['qwen3-max'],
       'x-ai/grok-code-fast-1': models['grok-code-fast-1'],
@@ -1536,6 +1561,7 @@ export const providers: ProvidersMap = {
   },
   iflow: {
     id: 'iflow',
+    source: 'built-in',
     env: ['IFLOW_API_KEY'],
     name: 'iFlow',
     api: 'https://apis.iflow.cn/v1/',
@@ -1572,6 +1598,7 @@ export const providers: ProvidersMap = {
   },
   moonshotai: {
     id: 'moonshotai',
+    source: 'built-in',
     env: ['MOONSHOT_API_KEY'],
     name: 'Moonshot',
     api: 'https://api.moonshot.ai/v1',
@@ -1581,11 +1608,13 @@ export const providers: ProvidersMap = {
       'kimi-k2-turbo-preview': models['kimi-k2-turbo-preview'],
       'kimi-k2-thinking': models['kimi-k2-thinking'],
       'kimi-k2-thinking-turbo': models['kimi-k2-thinking-turbo'],
+      'kimi-k2.5': models['kimi-k2.5'],
     },
     createModel: defaultModelCreator,
   },
   'moonshotai-cn': {
     id: 'moonshotai-cn',
+    source: 'built-in',
     env: ['MOONSHOT_API_KEY'],
     name: 'MoonshotCN',
     api: 'https://api.moonshot.cn/v1',
@@ -1595,11 +1624,13 @@ export const providers: ProvidersMap = {
       'kimi-k2-turbo-preview': models['kimi-k2-turbo-preview'],
       'kimi-k2-thinking': models['kimi-k2-thinking'],
       'kimi-k2-thinking-turbo': models['kimi-k2-thinking-turbo'],
+      'kimi-k2.5': models['kimi-k2.5'],
     },
     createModel: defaultModelCreator,
   },
   groq: {
     id: 'groq',
+    source: 'built-in',
     env: ['GROQ_API_KEY'],
     name: 'Groq',
     api: 'https://api.groq.com/openai/v1',
@@ -1609,6 +1640,7 @@ export const providers: ProvidersMap = {
   },
   siliconflow: {
     id: 'siliconflow',
+    source: 'built-in',
     env: ['SILICONFLOW_API_KEY'],
     name: 'SiliconFlow',
     api: 'https://api.siliconflow.com/v1',
@@ -1628,6 +1660,7 @@ export const providers: ProvidersMap = {
   },
   'siliconflow-cn': {
     id: 'siliconflow-cn',
+    source: 'built-in',
     env: ['SILICONFLOW_API_KEY'],
     name: 'SiliconFlow CN',
     api: 'https://api.siliconflow.cn/v1',
@@ -1647,6 +1680,7 @@ export const providers: ProvidersMap = {
   },
   modelscope: {
     id: 'modelscope',
+    source: 'built-in',
     env: ['MODELSCOPE_API_KEY'],
     name: 'ModelScope',
     api: 'https://api-inference.modelscope.cn/v1',
@@ -1665,6 +1699,7 @@ export const providers: ProvidersMap = {
   },
   volcengine: {
     id: 'volcengine',
+    source: 'built-in',
     env: ['VOLCENGINE_API_KEY'],
     name: 'VolcEngine',
     api: 'https://ark.cn-beijing.volces.com/api/v3',
@@ -1679,6 +1714,7 @@ export const providers: ProvidersMap = {
   },
   'zai-coding-plan': {
     id: 'zai-coding-plan',
+    source: 'built-in',
     env: ['ZHIPU_API_KEY'],
     name: 'Z.AI Coding Plan',
     api: 'https://api.z.ai/api/coding/paas/v4',
@@ -1696,6 +1732,7 @@ export const providers: ProvidersMap = {
   },
   'zhipuai-coding-plan': {
     id: 'zhipuai-coding-plan',
+    source: 'built-in',
     env: ['ZHIPU_API_KEY'],
     name: 'Zhipu AI Coding Plan',
     api: 'https://open.bigmodel.cn/api/coding/paas/v4',
@@ -1713,6 +1750,7 @@ export const providers: ProvidersMap = {
   },
   zhipuai: {
     id: 'zhipuai',
+    source: 'built-in',
     env: ['ZHIPU_API_KEY'],
     name: 'Zhipu AI',
     api: 'https://open.bigmodel.cn/api/paas/v4',
@@ -1730,6 +1768,7 @@ export const providers: ProvidersMap = {
   },
   zenmux: {
     id: 'zenmux',
+    source: 'built-in',
     env: ['ZENMUX_API_KEY'],
     name: 'ZenMux',
     api: 'https://zenmux.ai/api/v1',
@@ -1757,6 +1796,7 @@ export const providers: ProvidersMap = {
       'deepseek/deepseek-v3.2-speciale': models['deepseek-v3.2-speciale'],
       'deepseek/deepseek-chat': models['deepseek-v3-2-exp'],
       'deepseek/deepseek-reasoner': models['deepseek-r1-0528'],
+      'moonshotai/kimi-k2.5': models['kimi-k2.5'],
     },
     createModel: createModelCreatorCompatible({
       headers: {
@@ -1767,6 +1807,7 @@ export const providers: ProvidersMap = {
   },
   minimax: {
     id: 'minimax',
+    source: 'built-in',
     env: ['MINIMAX_API_KEY'],
     name: 'Minimax',
     api: 'https://api.minimaxi.io/anthropic/v1',
@@ -1785,6 +1826,7 @@ export const providers: ProvidersMap = {
   },
   'minimax-cn': {
     id: 'minimax-cn',
+    source: 'built-in',
     env: ['MINIMAX_API_KEY'],
     name: 'Minimax CN',
     api: 'https://api.minimaxi.com/anthropic/v1',
@@ -1803,6 +1845,7 @@ export const providers: ProvidersMap = {
   },
   xiaomi: {
     id: 'xiaomi',
+    source: 'built-in',
     env: ['MIMO_API_KEY'],
     name: 'Xiaomi Mimo',
     api: 'https://api.xiaomimimo.com/v1',
@@ -1814,13 +1857,23 @@ export const providers: ProvidersMap = {
   },
   cerebras: {
     id: 'cerebras',
+    source: 'built-in',
     env: ['CEREBRAS_API_KEY'],
     name: 'Cerebras',
     doc: 'https://cerebras.ai/docs',
     models: {
-      'zai-glm-4.6': models['glm-4.6'],
-      'zai-glm-4.7': models['glm-4.7'],
-      'gpt-oss-120b': models['gpt-oss-120b'],
+      'zai-glm-4.7': {
+        ...models['glm-4.7'],
+        // ref: https://inference-docs.cerebras.ai/models/zai-glm-47
+        // default use the context of free tier
+        limit: { context: 64000, output: 40000 },
+      },
+      'gpt-oss-120b': {
+        ...models['gpt-oss-120b'],
+        // ref: https://inference-docs.cerebras.ai/models/openai-oss
+        // default use the context of free tier
+        limit: { context: 65000, output: 32000 },
+      },
     },
     createModel(name, provider) {
       const apiKey = getProviderApiKey(provider);
@@ -1839,6 +1892,7 @@ export const providers: ProvidersMap = {
   },
   huggingface: {
     id: 'huggingface',
+    source: 'built-in',
     env: ['HUGGINGFACE_API_KEY'],
     name: 'Hugging Face',
     doc: 'https://huggingface.co/docs/inference-providers/index',
@@ -1857,6 +1911,7 @@ export const providers: ProvidersMap = {
   },
   poe: {
     id: 'poe',
+    source: 'built-in',
     env: ['POE_API_KEY'],
     name: 'Poe',
     api: 'https://api.poe.com/v1',
@@ -1879,6 +1934,7 @@ export const providers: ProvidersMap = {
   },
   antigravity: {
     id: 'antigravity',
+    source: 'built-in',
     env: [],
     name: 'Antigravity',
     doc: 'https://antigravity.google/',
@@ -1921,6 +1977,7 @@ export const providers: ProvidersMap = {
   },
   nvidia: {
     id: 'nvidia',
+    source: 'built-in',
     env: ['NVIDIA_API_KEY'],
     name: 'NVIDIA',
     api: 'https://integrate.api.nvidia.com/v1/',
@@ -1929,6 +1986,7 @@ export const providers: ProvidersMap = {
       'z-ai/glm4.7': models['glm-4.7'],
       'minimaxai/minimax-m2.1': models['minimax-m2.1'],
       'moonshotai/kimi-k2-thinking': models['kimi-k2-thinking'],
+      'moonshotai/kimi-k2.5': models['kimi-k2.5'],
       'openai/gpt-oss-120b': models['gpt-oss-120b'],
       'qwen/qwen3-coder-480b-a35b-instruct':
         models['qwen3-coder-480b-a35b-instruct'],
@@ -1943,6 +2001,7 @@ export const providers: ProvidersMap = {
   },
   canopywave: {
     id: 'canopywave',
+    source: 'built-in',
     env: ['CANOPYWAVE_API_KEY'],
     name: 'CanopyWave',
     api: 'https://inference.canopywave.io/v1',
@@ -1957,6 +2016,7 @@ export const providers: ProvidersMap = {
   },
   modelwatch: {
     id: 'modelwatch',
+    source: 'built-in',
     env: ['MODELWATCH_API_KEY'],
     name: 'ModelWatch',
     api: 'https://hub.modelwatch.dev/v1/',
@@ -2016,11 +2076,14 @@ function mergeConfigProviders(
   Object.entries(configProviders).forEach(([providerId, config]) => {
     let provider = mergedProviders[providerId] || {};
     provider = defu(config, provider) as Provider;
-    if (provider.createModelType === 'anthropic' && !provider.createModel) {
-      provider.createModel = defaultAnthropicModelCreator;
-    }
     if (!provider.createModel) {
-      provider.createModel = defaultModelCreator;
+      const creatorMap = {
+        anthropic: defaultAnthropicModelCreator,
+        openai: defaultModelCreator,
+        responses: openaiModelResponseCreator,
+      };
+      const type = provider.apiFormat || 'openai';
+      provider.createModel = creatorMap[type];
     }
     if (provider.models) {
       for (const modelId in provider.models) {

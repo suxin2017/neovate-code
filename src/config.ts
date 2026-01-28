@@ -43,13 +43,6 @@ export type CommitConfig = {
 
 export type ProviderConfig = Partial<Omit<Provider, 'createModel'>>;
 
-export type DesktopConfig = {
-  theme?: 'light' | 'dark' | 'system';
-  sendMessageWith?: 'enter' | 'cmdEnter';
-  terminalFont?: string;
-  terminalFontSize?: number;
-};
-
 export type Config = {
   model: string;
   planModel: string;
@@ -76,7 +69,6 @@ export type Config = {
   autoUpdate?: boolean;
   temperature?: number;
   httpProxy?: string;
-  desktop?: DesktopConfig;
   /**
    * Extensions configuration for third-party custom agents.
    * Allows arbitrary nested configuration without validation.
@@ -92,6 +84,12 @@ export type Config = {
    * Example: { explore: { model: "anthropic/claude-haiku-4" } }
    */
   agent?: Record<string, AgentConfig>;
+  /**
+   * Extra SKILL.md file paths for user-defined skills.
+   * Accepts absolute paths to SKILL.md files or directories containing SKILL.md.
+   * Example: ["/path/to/my-skill/SKILL.md", "/path/to/skill-dir"]
+   */
+  skills?: string[];
   /**
    * Notification configuration.
    * - true: play default sound (Funk/warning)
@@ -116,10 +114,6 @@ const DEFAULT_CONFIG: Partial<Config> = {
   extensions: {},
   tools: {},
   agent: {},
-  desktop: {
-    theme: 'light',
-    sendMessageWith: 'enter',
-  },
 };
 const VALID_CONFIG_KEYS = [
   ...Object.keys(DEFAULT_CONFIG),
@@ -140,19 +134,19 @@ const VALID_CONFIG_KEYS = [
   'tools',
   'agent',
   'notification',
+  'skills',
 ];
-const ARRAY_CONFIG_KEYS = ['plugins'];
+const ARRAY_CONFIG_KEYS = ['plugins', 'skills'];
 const OBJECT_CONFIG_KEYS = [
   'mcpServers',
   'commit',
   'provider',
   'extensions',
   'tools',
-  'desktop',
   'agent',
 ];
 const BOOLEAN_CONFIG_KEYS = ['quiet', 'todo', 'autoCompact', 'autoUpdate'];
-export const GLOBAL_ONLY_KEYS = ['desktop'];
+export const GLOBAL_ONLY_KEYS: string[] = [];
 
 function assertGlobalAllowed(global: boolean, key: string) {
   const rootKey = key.split('.')[0];

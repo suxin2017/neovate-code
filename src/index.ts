@@ -1,7 +1,6 @@
 import assert from 'assert';
 import { render } from 'ink';
 import React from 'react';
-import { runTest } from './commands/__test';
 import { runServer } from './commands/server/server';
 import { Context } from './context';
 import { GlobalData } from './globalData';
@@ -35,6 +34,7 @@ export {
   type SDKSessionOptions,
   type SDKUserMessage,
 } from './sdk';
+export type { ProviderConfig } from './config';
 export { createTool } from './tool';
 
 export type { Plugin, Context };
@@ -55,6 +55,7 @@ export type Argv = {
   appendSystemPrompt?: string;
   approvalMode?: string;
   cwd?: string;
+  host?: string;
   language?: string;
   model?: string;
   outputFormat?: string;
@@ -65,6 +66,8 @@ export type Argv = {
   resume?: string;
   systemPrompt?: string;
   tools?: string;
+  // number
+  port?: number;
   // array
   plugin: string[];
   mcpConfig: string[];
@@ -87,10 +90,12 @@ export async function parseArgs(argv: any) {
     },
     array: ['plugin', 'mcpConfig'],
     boolean: ['help', 'mcp', 'quiet', 'continue', 'version'],
+    number: ['port'],
     string: [
       'appendSystemPrompt',
       'approvalMode',
       'cwd',
+      'host',
       'language',
       'mcpConfig',
       'model',
@@ -172,7 +177,7 @@ async function runQuiet(argv: Argv, contextCreateOpts: any, cwd: string) {
     messageBus.setTransport(quietTransport);
     nodeBridge.messageBus.setTransport(nodeTransport);
 
-    messageBus.registerHandler('toolApproval', async () => {
+    messageBus.registerHandler('toolApproval', async (_params) => {
       return { approved: true };
     });
 
@@ -325,6 +330,7 @@ export async function runNeovate(opts: {
   plugins: Plugin[];
   upgrade?: UpgradeOptions;
   argv: Argv;
+  fetch?: typeof globalThis.fetch;
 }): Promise<{ shutdown?: () => Promise<void> }> {
   const argv = opts.argv;
   const cwd = argv.cwd || process.cwd();
@@ -359,6 +365,7 @@ export async function runNeovate(opts: {
     productName: opts.productName,
     productASCIIArt: opts.productASCIIArt,
     version: opts.version,
+    fetch: opts.fetch,
     argvConfig: {
       model: argv.model,
       planModel: argv.planModel,
@@ -384,6 +391,8 @@ export async function runNeovate(opts: {
     const shutdown = await runServer({
       cwd,
       contextCreateOpts,
+      port: argv.port,
+      host: argv.host,
     });
     return { shutdown };
   }
@@ -414,10 +423,6 @@ export async function runNeovate(opts: {
       ...contextCreateOpts,
     });
     switch (command) {
-      case '__test': {
-        await runTest(context);
-        break;
-      }
       case 'config': {
         const { runConfig } = await import('./commands/config');
         await runConfig(context);

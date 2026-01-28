@@ -32,6 +32,7 @@ interface GitStatusData {
   isUserConfigured: { name: boolean; email: boolean };
   isMerging: boolean;
   unstagedFiles: Array<{ status: string; file: string }>;
+  hasRemote: boolean;
 }
 
 interface GitHubDetectionData {
@@ -117,6 +118,7 @@ const CommitUI: React.FC<CommitUIProps> = ({ messageBus, cwd, options }) => {
     hasGhCli: false,
     isGitHubRemote: false,
   });
+  const [hasRemote, setHasRemote] = useState(true); // Default to true to avoid flickering
 
   // Handle exit
   useEffect(() => {
@@ -315,6 +317,11 @@ const CommitUI: React.FC<CommitUIProps> = ({ messageBus, cwd, options }) => {
 
       const status = statusResult.data as GitStatusData;
 
+      // Update hasRemote state from git status
+      if (status.hasRemote !== undefined) {
+        setHasRemote(status.hasRemote);
+      }
+
       if (!status.isGitInstalled) {
         setState({
           phase: 'error',
@@ -418,9 +425,16 @@ and may require re-resolving conflicts.`,
       );
 
       if (!generateResult.success) {
+        const rawError = generateResult.error as unknown;
+        const errorMsg =
+          typeof rawError === 'object' &&
+          rawError !== null &&
+          'message' in rawError
+            ? String((rawError as { message: unknown }).message)
+            : generateResult.error || 'Failed to generate commit message';
         setState({
           phase: 'error',
-          error: generateResult.error || 'Failed to generate commit message',
+          error: errorMsg,
           recoveryAction: () => runWorkflow(),
         });
         return;
@@ -470,9 +484,16 @@ and may require re-resolving conflicts.`,
     });
 
     if (!generateResult.success) {
+      const rawError = generateResult.error as unknown;
+      const errorMsg =
+        typeof rawError === 'object' &&
+        rawError !== null &&
+        'message' in rawError
+          ? String((rawError as { message: unknown }).message)
+          : generateResult.error || 'Failed to generate commit message';
       setState({
         phase: 'error',
-        error: generateResult.error || 'Failed to generate commit message',
+        error: errorMsg,
         recoveryAction: () => runWorkflow(),
       });
       return;
@@ -954,18 +975,6 @@ and may require re-resolving conflicts.`,
   // Render based on current state
   return (
     <Box flexDirection="column" padding={1}>
-      {/* Header */}
-      <Box marginBottom={1} flexDirection="column">
-        <Text bold color="cyan">
-          🚀 AI Commit Message Generator
-        </Text>
-        {options.model && (
-          <Text dimColor>
-            Model: <Text color="yellow">{options.model}</Text>
-          </Text>
-        )}
-      </Box>
-
       {/* Validating Phase */}
       {state.phase === 'validating' && (
         <Box>
@@ -992,7 +1001,9 @@ and may require re-resolving conflicts.`,
       {/* Generating Phase */}
       {state.phase === 'generating' && (
         <Box>
-          <Text color="yellow">⏳ Generating commit message with AI...</Text>
+          <Text color="yellow">
+            Generating commit message with {options.model}...
+          </Text>
         </Box>
       )}
 
@@ -1006,6 +1017,7 @@ and may require re-resolving conflicts.`,
               onCancel={() => setShouldExit(true)}
               hasGhCli={gitHubDetection.hasGhCli}
               isGitHubRemote={gitHubDetection.isGitHubRemote}
+              hasRemote={hasRemote}
             />
           </Box>
         </Box>

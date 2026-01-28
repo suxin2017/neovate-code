@@ -24,8 +24,11 @@ import { randomUUID } from './utils/randomUUID';
 export class Project {
   session: Session;
   context: Context;
+  // For subagent to inherit parent session config
+  parentSessionId?: string;
   constructor(opts: {
     sessionId?: SessionId;
+    parentSessionId?: string;
     context: Context;
   }) {
     this.session = opts.sessionId
@@ -35,6 +38,7 @@ export class Project {
         })
       : Session.create();
     this.context = opts.context;
+    this.parentSessionId = opts.parentSessionId;
   }
 
   async send(
@@ -54,7 +58,7 @@ export class Project {
       thinking?: ThinkingConfig;
     } = {},
   ) {
-    let tools = await resolveTools({
+    const tools = await resolveTools({
       context: this.context,
       sessionId: this.session.id,
       write: true,
@@ -62,12 +66,7 @@ export class Project {
       askUserQuestion: !this.context.config.quiet,
       signal: opts.signal,
       task: true,
-    });
-    tools = await this.context.apply({
-      hook: 'tool',
-      args: [{ sessionId: this.session.id }],
-      memo: tools,
-      type: PluginHookType.SeriesMerge,
+      isPlan: false,
     });
     const outputStyleManager = await OutputStyleManager.create(this.context);
     const outputStyle = outputStyleManager.getOutputStyle(
@@ -109,7 +108,7 @@ export class Project {
       thinking?: ThinkingConfig;
     } = {},
   ) {
-    let tools = await resolveTools({
+    const tools = await resolveTools({
       context: this.context,
       sessionId: this.session.id,
       write: false,
@@ -117,12 +116,7 @@ export class Project {
       askUserQuestion: !this.context.config.quiet,
       signal: opts.signal,
       task: false,
-    });
-    tools = await this.context.apply({
-      hook: 'tool',
-      args: [{ isPlan: true, sessionId: this.session.id }],
-      memo: tools,
-      type: PluginHookType.SeriesMerge,
+      isPlan: true,
     });
     let systemPrompt = generatePlanSystemPrompt({
       todo: this.context.config.todo!,
@@ -140,7 +134,8 @@ export class Project {
       model: opts.model || this.context.config.planModel,
       tools,
       systemPrompt,
-      onToolApprove: () => Promise.resolve(true),
+      // why? askUserQuestion tool will always require user input, so we don't need to approve it
+      // onToolApprove: () => Promise.resolve(true),
     });
   }
 
@@ -417,8 +412,11 @@ export class Project {
           }
         }
         // 4. if category is edit check autoEdit config (including session config)
+        // Read parent session config first, so subagent can inherit parent agent's approval settings
+        // If there is no parent (independent agent), use its own session
+        const sessionIdToCheck = this.parentSessionId || this.session.id;
         const sessionConfigManager = new SessionConfigManager({
-          logPath: this.context.paths.getSessionLogPath(this.session.id),
+          logPath: this.context.paths.getSessionLogPath(sessionIdToCheck),
         });
         if (tool.approval?.category === 'write') {
           if (

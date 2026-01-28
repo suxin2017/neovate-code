@@ -438,17 +438,30 @@ function AssistantText({
 
 function ToolUse({ part }: { part: ToolUsePart }) {
   const { name, displayName } = part;
+  const { transcriptMode } = useAppStore();
   const description = part.description;
+
+  // Truncate description when not in transcript mode
+  const displayDescription = useMemo(() => {
+    if (!description) return undefined;
+    if (transcriptMode) return description;
+    return description.length > 100
+      ? `${description.substring(0, 97)}...`
+      : description;
+  }, [description, transcriptMode]);
+
   return (
-    <Box marginTop={SPACING.MESSAGE_MARGIN_TOP}>
-      <Text>
-        <Text bold color={UI_COLORS.TOOL}>
-          {displayName || name}
-        </Text>
-        {description && (
-          <Text color={UI_COLORS.TOOL_DESCRIPTION}>({description})</Text>
-        )}
+    <Box
+      marginTop={SPACING.MESSAGE_MARGIN_TOP}
+      flexDirection="row"
+      flexWrap="wrap"
+    >
+      <Text bold color={UI_COLORS.TOOL}>
+        {displayName || name}
       </Text>
+      {displayDescription && (
+        <Text color={UI_COLORS.TOOL_DESCRIPTION}>({displayDescription})</Text>
+      )}
     </Box>
   );
 }

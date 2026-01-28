@@ -84,6 +84,21 @@ export class At {
         filePath = filePath.replace(/\\ /g, ' ');
       }
 
+      // Skip directories - only process files
+      try {
+        const absolutePath = path.resolve(this.cwd, filePath);
+        if (
+          fs.existsSync(absolutePath) &&
+          fs.statSync(absolutePath).isDirectory()
+        ) {
+          match = regex.exec(prompt);
+          continue;
+        }
+      } catch {
+        // If we can't check (e.g., permissions), let it through
+        // and handle the error later in getContent()
+      }
+
       // Parse line range if present
       let lineRange: { start: number; end?: number } | undefined;
       if (groups.lineRange) {

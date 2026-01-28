@@ -77,11 +77,15 @@ export function shellExecute(
   const shell = isWindows ? 'cmd.exe' : process.env.SHELL || '/bin/bash';
   const isFish = !isWindows && shell.endsWith('/fish');
   const isTTY = process.stdout.isTTY;
+  // Detect Electron environment to enable interactive shell for user aliases
+  const isElectron =
+    !!process.env.ELECTRON_RUN_AS_NODE || !!process.versions.electron;
+  const needsInteractive = isTTY || isElectron;
   const shellArgs = isWindows
     ? ['/c', commandToExecute]
     : isFish
       ? ['-l', '-c', commandToExecute]
-      : isTTY
+      : needsInteractive
         ? ['-il', '-c', commandToExecute]
         : ['-l', '-c', commandToExecute];
 

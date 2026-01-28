@@ -39,7 +39,7 @@ type ConfigSetInput = {
   cwd: string;
   isGlobal: boolean;
   key: string;
-  value: string;
+  value: any;
 };
 
 type ConfigRemoveInput = {
@@ -260,6 +260,33 @@ type ModelsListOutput = {
   };
 };
 
+type ModelsTestInput = {
+  cwd?: string;
+  model: string;
+  timeout?: number; // Default 15000ms (15 seconds)
+  prompt?: string; // Default 'hi'
+};
+type ModelsTestOutput =
+  | {
+      success: true;
+      data: {
+        model: string;
+        provider: string;
+        modelName: string;
+        prompt: string;
+        response: string;
+        responseTime: number; // in milliseconds
+        usage: {
+          input_tokens: number;
+          output_tokens: number;
+        } | null;
+      };
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
 // ============================================================================
 // Output Styles Handlers
 // ============================================================================
@@ -329,12 +356,12 @@ type ProjectGetRepoInfoOutput = {
         lastAccessed: number;
         settings: any;
       };
-      gitRemote: {
+      gitRemote?: {
         originUrl: string | null;
         defaultBranch: string | null;
-        syncStatus: any;
       };
     };
+    timings?: Record<string, number>;
   };
 };
 
@@ -449,6 +476,30 @@ type ProjectGenerateCommitOutput = {
   };
 };
 
+type ProjectsListInput = {
+  cwd: string;
+  includeSessionDetails?: boolean;
+};
+
+type ProjectsListOutput = {
+  success: boolean;
+  error?: string;
+  data?: {
+    projects: Array<{
+      path: string;
+      lastAccessed: number | null;
+      sessionCount: number;
+      sessions?: Array<{
+        sessionId: string;
+        modified: Date;
+        created: Date;
+        messageCount: number;
+        summary: string;
+      }>;
+    }>;
+  };
+};
+
 // ============================================================================
 // Providers Handlers
 // ============================================================================
@@ -465,6 +516,15 @@ type ProvidersListOutput = {
       doc?: string;
       env?: string[];
       apiEnv?: string[];
+      api?: string;
+      apiFormat?: 'anthropic' | 'openai' | 'responses';
+      source?: 'built-in' | string;
+      options?: {
+        baseURL?: string;
+        apiKey?: string;
+        headers?: Record<string, string>;
+        httpProxy?: string;
+      };
       validEnvs: string[];
       hasApiKey: boolean;
       maskedApiKey?: string;
@@ -668,6 +728,16 @@ type SessionConfigRemoveInput = {
   key: string;
 };
 
+type SessionsRemoveInput = {
+  cwd: string;
+  sessionId: string;
+};
+
+type SessionsRemoveOutput = {
+  success: boolean;
+  error?: string;
+};
+
 // ============================================================================
 // Sessions Handlers
 // ============================================================================
@@ -699,6 +769,147 @@ type SessionsResumeOutput = {
     logFile: string;
   };
 };
+
+// ============================================================================
+// Skills Handlers
+// ============================================================================
+
+/** Skill source types */
+type SkillSourceType =
+  | 'plugin'
+  | 'config'
+  | 'global-claude'
+  | 'global'
+  | 'project-claude'
+  | 'project';
+
+type SkillsListInput = {
+  cwd: string;
+};
+type SkillsListOutput = {
+  success: boolean;
+  data: {
+    skills: Array<{
+      name: string;
+      description: string;
+      path: string;
+      source: SkillSourceType;
+    }>;
+    errors: Array<{ path: string; message: string }>;
+  };
+};
+
+type SkillsGetInput = {
+  cwd: string;
+  name: string;
+};
+type SkillsGetOutput =
+  | {
+      success: true;
+      data: {
+        skill: {
+          name: string;
+          description: string;
+          path: string;
+          source: SkillSourceType;
+          body: string;
+        };
+      };
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
+type SkillsAddInput = {
+  cwd: string;
+  source: string;
+  global?: boolean;
+  claude?: boolean;
+  overwrite?: boolean;
+  name?: string;
+  targetDir?: string;
+};
+type SkillsAddOutput =
+  | {
+      success: true;
+      data: {
+        installed: Array<{
+          name: string;
+          description: string;
+          path: string;
+          source: SkillSourceType;
+        }>;
+        skipped: Array<{ name: string; reason: string }>;
+        errors: Array<{ path: string; message: string }>;
+      };
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
+type SkillsRemoveInput = {
+  cwd: string;
+  name: string;
+  targetDir?: string;
+};
+type SkillsRemoveOutput = {
+  success: boolean;
+  error?: string;
+};
+
+type SkillsPreviewInput = {
+  cwd: string;
+  source: string;
+};
+type SkillsPreviewOutput =
+  | {
+      success: true;
+      data: {
+        previewId: string;
+        skills: Array<{
+          name: string;
+          description: string;
+          skillPath: string;
+        }>;
+        errors: Array<{ path: string; message: string }>;
+      };
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
+type SkillsInstallInput = {
+  cwd: string;
+  previewId: string;
+  selectedSkills: string[];
+  source: string;
+  global?: boolean;
+  claude?: boolean;
+  overwrite?: boolean;
+  name?: string;
+  targetDir?: string;
+};
+type SkillsInstallOutput =
+  | {
+      success: true;
+      data: {
+        installed: Array<{
+          name: string;
+          description: string;
+          path: string;
+          source: SkillSourceType;
+        }>;
+        skipped: Array<{ name: string; reason: string }>;
+        errors: Array<{ path: string; message: string }>;
+      };
+    }
+  | {
+      success: false;
+      error: string;
+    };
 
 // ============================================================================
 // Slash Command Handlers
@@ -874,6 +1085,13 @@ type UtilsDetectAppsOutput = {
   };
 };
 
+type UtilsPlaySoundInput = {
+  sound: string; // Sound name (e.g., 'Glass', 'Hero') or preset ('success', 'error', 'warning', 'info', 'done')
+  volume?: number; // Volume level 0.0 to 1.0, defaults to 1.0
+};
+
+type UtilsPlaySoundOutput = SuccessResponse | ErrorResponse;
+
 // ============================================================================
 // UI Bridge Handlers (from uiBridge.ts)
 // ============================================================================
@@ -881,6 +1099,7 @@ type UtilsDetectAppsOutput = {
 type ToolApprovalInput = {
   toolUse: ToolUse;
   category?: ApprovalCategory;
+  sessionId: string;
 };
 
 type ToolApprovalOutput = {
@@ -937,6 +1156,7 @@ export type HandlerMap = {
 
   // Models handlers
   'models.list': { input: ModelsListInput; output: ModelsListOutput };
+  'models.test': { input: ModelsTestInput; output: ModelsTestOutput };
 
   // Output styles handlers
   'outputStyles.list': {
@@ -992,6 +1212,12 @@ export type HandlerMap = {
   'project.generateCommit': {
     input: ProjectGenerateCommitInput;
     output: ProjectGenerateCommitOutput;
+  };
+
+  // Projects handlers
+  'projects.list': {
+    input: ProjectsListInput;
+    output: ProjectsListOutput;
   };
 
   // Providers handlers
@@ -1068,6 +1294,10 @@ export type HandlerMap = {
     input: SessionConfigRemoveInput;
     output: SuccessResponse;
   };
+  'sessions.remove': {
+    input: SessionsRemoveInput;
+    output: SessionsRemoveOutput;
+  };
 
   // Sessions handlers
   'sessions.list': { input: SessionsListInput; output: SessionsListOutput };
@@ -1075,6 +1305,14 @@ export type HandlerMap = {
     input: SessionsResumeInput;
     output: SessionsResumeOutput;
   };
+
+  // Skills handlers
+  'skills.list': { input: SkillsListInput; output: SkillsListOutput };
+  'skills.get': { input: SkillsGetInput; output: SkillsGetOutput };
+  'skills.add': { input: SkillsAddInput; output: SkillsAddOutput };
+  'skills.remove': { input: SkillsRemoveInput; output: SkillsRemoveOutput };
+  'skills.preview': { input: SkillsPreviewInput; output: SkillsPreviewOutput };
+  'skills.install': { input: SkillsInstallInput; output: SkillsInstallOutput };
 
   // Slash command handlers
   'slashCommand.list': {
@@ -1121,6 +1359,10 @@ export type HandlerMap = {
   'utils.detectApps': {
     input: UtilsDetectAppsInput;
     output: UtilsDetectAppsOutput;
+  };
+  'utils.playSound': {
+    input: UtilsPlaySoundInput;
+    output: UtilsPlaySoundOutput;
   };
 
   // UI Bridge handlers

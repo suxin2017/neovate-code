@@ -4,6 +4,7 @@ import * as z from 'zod';
 import type { Context } from './context';
 import type { ImagePart, TextPart } from './message';
 import { resolveModelWithContext } from './model';
+import { PluginHookType } from './plugin';
 import { createAskUserQuestionTool } from './tools/askUserQuestion';
 import {
   createBashOutputTool,
@@ -29,14 +30,17 @@ type ResolveToolsOpts = {
   askUserQuestion?: boolean;
   signal?: AbortSignal;
   task?: boolean;
+  isPlan?: boolean;
 };
 
 export async function resolveTools(opts: ResolveToolsOpts) {
   const { cwd, productName, paths } = opts.context;
   const sessionId = opts.sessionId;
-  // TODO: use small model for fetch tool
   const model = (
-    await resolveModelWithContext(opts.context.config.model, opts.context)
+    await resolveModelWithContext(
+      opts.context.config.smallModel || opts.context.config.model,
+      opts.context,
+    )
   ).model!;
   const hasSkills =
     opts.context.skillManager &&
@@ -46,7 +50,7 @@ export async function resolveTools(opts: ResolveToolsOpts) {
     createLSTool({ cwd }),
     createGlobTool({ cwd }),
     createGrepTool({ cwd }),
-    createFetchTool({ model }),
+    createFetchTool({ model, fetch: opts.context.fetch }),
     ...(hasSkills
       ? [createSkillTool({ skillManager: opts.context.skillManager! })]
       : []),
@@ -94,17 +98,27 @@ export async function resolveTools(opts: ResolveToolsOpts) {
     ...mcpTools,
   ];
 
-  const toolsConfig = opts.context.config.tools;
-  const availableTools = (() => {
-    if (!toolsConfig || Object.keys(toolsConfig).length === 0) {
-      return allTools;
-    }
-    return allTools.filter((tool) => {
-      // Check if the tool is disabled (only explicitly set to false will disable)
-      const isDisabled = toolsConfig[tool.name] === false;
-      return !isDisabled;
+  // 1. First, execute plugin hook to allow plugins to add/modify tools
+  let availableTools = allTools;
+  try {
+    availableTools = await opts.context.apply({
+      hook: 'tool',
+      args: [{ isPlan: opts.isPlan, sessionId: opts.sessionId }],
+      memo: allTools,
+      type: PluginHookType.SeriesMerge,
     });
-  })();
+  } catch (error) {
+    console.warn('[resolveTools] Plugin tool hook failed:', error);
+  }
+
+  // 2. Then, filter all tools (including plugin-injected ones) by config
+  const toolsConfig = opts.context.config.tools;
+  if (toolsConfig && Object.keys(toolsConfig).length > 0) {
+    availableTools = availableTools.filter((tool) => {
+      // Only explicitly set to false will disable the tool
+      return toolsConfig[tool.name] !== false;
+    });
+  }
 
   const taskTools = (() => {
     // Task tool is only available in quiet mode

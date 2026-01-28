@@ -9,7 +9,10 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5min
 const urlCache = new Map();
 const MAX_CONTENT_LENGTH = 15000; // 15k
 
-export function createFetchTool(opts: { model: ModelInfo }) {
+export function createFetchTool(opts: {
+  model: ModelInfo;
+  fetch?: typeof globalThis.fetch;
+}) {
   return createTool({
     name: 'fetch',
     description: `
@@ -49,7 +52,8 @@ Remembers:
           throw new Error('Invalid URL');
         }
 
-        const response = await fetch(url);
+        const fetchFn = opts.fetch ?? globalThis.fetch;
+        const response = await fetchFn(url);
         if (!response.ok) {
           throw new Error(
             `Failed to fetch ${url}: ${response.status} ${response.statusText}`,

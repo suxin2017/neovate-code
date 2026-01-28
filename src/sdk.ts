@@ -1,3 +1,4 @@
+import type { ProviderConfig } from './config';
 import type {
   NormalizedMessage,
   SDKResultMessage,
@@ -19,6 +20,37 @@ export type SDKSessionOptions = {
   cwd?: string;
   productName?: string;
   plugins?: Plugin[];
+  /**
+   * Custom provider configurations to add or override built-in providers.
+   * Allows specifying custom API endpoints and model definitions.
+   *
+   * @example
+   * ```typescript
+   * providers: {
+   *   "my-custom-provider": {
+   *     api: "https://my-api.example.com/v1",
+   *     env: ["MY_API_KEY"],
+   *     models: {
+   *       "my-model": "deepseek-v3.2" // Reference existing model
+   *     }
+   *   }
+   * }
+   * ```
+   */
+  providers?: Record<string, ProviderConfig>;
+  /**
+   * Extra SKILL.md file paths for user-defined skills.
+   * Accepts absolute paths to SKILL.md files or directories containing SKILL.md.
+   *
+   * @example
+   * ```typescript
+   * skills: [
+   *   "/path/to/my-skill/SKILL.md",
+   *   "/path/to/skill-directory"
+   * ]
+   * ```
+   */
+  skills?: string[];
 };
 
 export type SDKUserMessage = {
@@ -248,6 +280,10 @@ function createBridgePair(options: SDKSessionOptions): {
       version: '0.0.0',
       argvConfig: {
         model: options.model,
+        // Pass custom providers to be merged with built-in providers
+        provider: options.providers,
+        // Pass custom skills to be loaded
+        skills: options.skills,
       },
       plugins: options.plugins || [],
     },
@@ -259,7 +295,7 @@ function createBridgePair(options: SDKSessionOptions): {
   messageBus.setTransport(sdkTransport);
   nodeBridge.messageBus.setTransport(nodeTransport);
 
-  messageBus.registerHandler('toolApproval', async () => {
+  messageBus.registerHandler('toolApproval', async (_params) => {
     return { approved: true };
   });
 

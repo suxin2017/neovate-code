@@ -1,6 +1,6 @@
 import pathe from 'pathe';
 import type { Plugin } from '../plugin';
-import { playSound, SOUND_PRESETS } from '../utils/sound';
+import { beep, playSound, SOUND_PRESETS } from '../utils/sound';
 
 function replaceVars(url: string, vars: Record<string, string>): string {
   return url.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? '');
@@ -10,6 +10,11 @@ export const notificationSoundPlugin: Plugin = {
   name: 'notificationSound',
 
   async stop() {
+    // Skip sound in quiet mode
+    if (this.config.quiet) {
+      return;
+    }
+
     const config = this.config.notification;
     if (config === false) {
       return;
@@ -30,6 +35,8 @@ export const notificationSoundPlugin: Plugin = {
 
     try {
       playSound(soundName);
-    } catch {}
+    } catch {
+      beep();
+    }
   },
 };
