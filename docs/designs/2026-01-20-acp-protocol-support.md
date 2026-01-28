@@ -60,11 +60,6 @@ src/commands/acp/
   ├── utils/
   │   ├── messageAdapter.ts       # Message format conversion
   │   └── streamHandler.ts        # Streaming response handling
-  └── __tests__/
-      ├── agent.test.ts
-      ├── session.test.ts
-      └── integration/
-          └── zed.integration.test.ts
 ```
 
 ### Data Flow Architecture
@@ -100,6 +95,7 @@ Neovate Core (No modifications)
 - `prompt()` / `cancel()`: Delegate to ACPSession for processing
 
 #### 3. ACPSession (`sessionHold a Neovate Session instance
+
 - Obtain output through event listeners (`on('chunk')`, `on('toolUse')`, etc.)
 - Use MessageAdapter for format conversion
 - Special handling of `todoWrite`, mapping to ACP's plan update
@@ -163,7 +159,6 @@ program
 - `src/commands/acp/types.ts`
 - `src/commands/acp/utils/messageAdapter.ts`
 - `src/commands/acp/utils/streamHandler.ts`
-- `src/commands/acp/__tests__/*.test.ts`
 
 **Modified Files:**
 

@@ -62,6 +62,7 @@
   "description": "A coding agent to enhance your development workflow.",
   "devDependencies": {
     "cli-highlight": "^2.1.11",
+    "@agentclientprotocol/sdk": "^0.13.0",
     "@ai-sdk/anthropic": "^2.0.56",
     "@ai-sdk/cerebras": "^1.0.33",
     "@ai-sdk/google": "^2.0.46",
