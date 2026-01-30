@@ -24,7 +24,7 @@ export const iflowProvider: Provider = {
     'user-agent': 'iFlow-Cli',
   },
   middlewares: [mergeSystemMessagesMiddleware],
-  extractReasoning: {
+  interleaved: {
     tagName: 'think',
   },
 };

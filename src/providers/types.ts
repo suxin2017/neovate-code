@@ -27,6 +27,12 @@ type CreateModel = (
   },
 ) => Promise<LanguageModelV3> | LanguageModelV3;
 
+type Interleaved = {
+  tagName?: string;
+  separator?: string;
+  startWithReasoning?: boolean;
+};
+
 export interface Model {
   id: string;
   name: string;
@@ -45,6 +51,7 @@ export interface Model {
   aliases?: string[];
   apiFormat?: ApiFormat;
   createModel?: CreateModel;
+  interleaved?: Interleaved;
 }
 
 export type ProviderModel = string | Partial<Model>;
@@ -75,11 +82,7 @@ export interface Provider {
   source?: 'built-in' | string;
   headers?: Record<string, string>;
   middlewares?: LanguageModelMiddleware[];
-  extractReasoning?: {
-    tagName?: string;
-    separator?: string;
-    startWithReasoning?: boolean;
-  };
+  interleaved?: Interleaved;
 }
 
 export type ProvidersMap = Record<string, Provider>;

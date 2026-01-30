@@ -15,5 +15,5 @@ export const nvidiaProvider: Provider = {
     'openai/gpt-oss-120b': {},
     'qwen/qwen3-coder-480b-a35b-instruct': {},
   },
-  extractReasoning: {},
+  interleaved: {},
 };

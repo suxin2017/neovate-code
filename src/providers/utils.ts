@@ -148,12 +148,13 @@ export const createModelCreator = (
   })();
 
   const middleware: LanguageModelMiddleware[] = provider.middlewares || [];
-  if (provider.extractReasoning) {
+  const interleaved = model.interleaved || provider.interleaved;
+  if (interleaved) {
     middleware.push(
       extractReasoningMiddleware({
-        tagName: provider.extractReasoning.tagName || 'think',
-        separator: provider.extractReasoning.separator,
-        startWithReasoning: provider.extractReasoning.startWithReasoning,
+        tagName: interleaved.tagName || 'think',
+        separator: interleaved.separator,
+        startWithReasoning: interleaved.startWithReasoning,
       }),
     );
   }
