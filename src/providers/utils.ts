@@ -22,7 +22,6 @@ export function withProxyConfig<T extends Record<string, any>>(
   provider: Provider,
 ): T {
   const proxyUrl = provider.options?.httpProxy;
-
   if (proxyUrl) {
     const proxyFetch = createProxyFetch(proxyUrl);
     return {
@@ -30,7 +29,6 @@ export function withProxyConfig<T extends Record<string, any>>(
       fetch: proxyFetch,
     };
   }
-
   return config;
 }
 
@@ -106,7 +104,15 @@ export const createModelCreator = (
   };
 
   const customFetch: any = (url: string, options: any) => {
-    return fetch(url, {
+    const f = (() => {
+      const proxyUrl = provider.options?.httpProxy;
+      if (proxyUrl) {
+        return createProxyFetch(proxyUrl);
+      } else {
+        return fetch;
+      }
+    })();
+    return f(url, {
       ...options,
       headers: {
         ...options.headers,
