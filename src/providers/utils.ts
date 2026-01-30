@@ -131,7 +131,11 @@ export const createModelCreator = (
           modelId,
         );
       case ApiFormat.Google:
-        return createGoogleGenerativeAI({ baseURL, apiKey })(modelId);
+        return createGoogleGenerativeAI({
+          baseURL,
+          apiKey,
+          fetch: customFetch,
+        })(modelId);
       default:
         assert(baseURL, 'baseURL is required');
         return createOpenAICompatible({
