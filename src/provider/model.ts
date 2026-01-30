@@ -96,8 +96,8 @@ function normalizeModel(
   }
   if (!actualModel.limit) {
     actualModel.limit = {
-      context: 0,
-      output: 0,
+      context: 256000,
+      output: 256000,
     };
   }
   const m = {
