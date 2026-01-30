@@ -106,7 +106,7 @@ function normalizeProviders(providersMap: ProvidersMap): ProvidersMap {
     if (normalized.models) {
       for (const modelId in normalized.models) {
         const model = normalized.models[modelId];
-        let actualModel = {};
+        let actualModel: Partial<Model> = {};
         let extraInfo: Partial<Model> = {};
         if (typeof model === 'string') {
           actualModel = models[model.toLocaleLowerCase()];
@@ -118,10 +118,12 @@ function normalizeProviders(providersMap: ProvidersMap): ProvidersMap {
           actualModel = models[splitedModelId];
           extraInfo = { ...model };
         }
-        assert(
-          actualModel,
-          `Model ${modelId} in provider ${providerId} not exists.`,
-        );
+        if (!actualModel.limit) {
+          actualModel.limit = {
+            context: 0,
+            output: 0,
+          };
+        }
         normalized.models[modelId] = {
           ...actualModel,
           ...extraInfo,
