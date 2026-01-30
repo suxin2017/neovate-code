@@ -5,7 +5,7 @@ import { devtools } from 'zustand/middleware';
 import type { ApprovalMode } from '../config';
 import type { LoopResult, StreamResult, ThinkingConfig } from '../loop';
 import type { Message, NormalizedMessage, UserMessage } from '../message';
-import type { ModelInfo, ProvidersMap } from '../model';
+import type { ModelInfo, ProvidersMap } from '../provider/model';
 import { Paths } from '../paths';
 import { loadSessionMessages, Session, SessionConfigManager } from '../session';
 import {

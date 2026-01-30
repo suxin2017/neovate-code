@@ -10,7 +10,12 @@ import type {
 import type { Config } from './config';
 import type { Context, ContextCreateOpts } from './context';
 import type { LoopResult } from './loop';
-import type { ModelAlias, ModelMap, Provider, ProvidersMap } from './model';
+import type {
+  ModelAlias,
+  ModelMap,
+  Provider,
+  ProvidersMap,
+} from './provider/model';
 import type { NodeBridgeHandlers } from './nodeBridge.types';
 import type { OutputStyle } from './outputStyle';
 import type { SlashCommand } from './slash-commands/types';

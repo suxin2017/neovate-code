@@ -1,5 +1,5 @@
 import type { Provider } from './types';
-import { mergeSystemMessagesMiddleware } from '../utils/mergeSystemMessagesMiddleware';
+import { mergeSystemMessagesMiddleware } from '../../utils/mergeSystemMessagesMiddleware';
 
 export const iflowProvider: Provider = {
   id: 'iflow',

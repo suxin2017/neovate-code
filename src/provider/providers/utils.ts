@@ -9,8 +9,8 @@ import {
 } from 'ai';
 import assert from 'assert';
 import { ApiFormat, type Model, type Provider } from './types';
-import { createProxyFetch } from '../utils/proxy';
-import { rotateApiKey } from '../utils/apiKeyRotation';
+import { createProxyFetch } from '../../utils/proxy';
+import { rotateApiKey } from '../../utils/apiKeyRotation';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
 /**

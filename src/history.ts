@@ -12,7 +12,7 @@ import type {
   ToolResultPart2,
   UserContent,
 } from './message';
-import type { ModelInfo } from './model';
+import type { ModelInfo } from './provider/model';
 import { Usage } from './usage';
 import { randomUUID } from './utils/randomUUID';
 

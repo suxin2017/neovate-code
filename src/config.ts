@@ -2,7 +2,7 @@ import defu from 'defu';
 import fs from 'fs';
 import { homedir } from 'os';
 import path from 'pathe';
-import type { Provider } from './model';
+import type { Provider } from './provider/model';
 
 export type McpStdioServerConfig = {
   type: 'stdio';

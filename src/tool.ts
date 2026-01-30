@@ -3,7 +3,7 @@ import path from 'pathe';
 import * as z from 'zod';
 import type { Context } from './context';
 import type { ImagePart, TextPart } from './message';
-import { resolveModelWithContext } from './model';
+import { resolveModelWithContext } from './provider/model';
 import { PluginHookType } from './plugin';
 import { createAskUserQuestionTool } from './tools/askUserQuestion';
 import {

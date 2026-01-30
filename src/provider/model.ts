@@ -4,10 +4,10 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import assert from 'assert';
 import defu from 'defu';
-import { ConfigManager, type ProviderConfig } from './config';
-import type { Context } from './context';
-import { PluginHookType } from './plugin';
-import { getThinkingConfig } from './thinking-config';
+import { ConfigManager, type ProviderConfig } from '../config';
+import type { Context } from '../context';
+import { PluginHookType } from '../plugin';
+import { getThinkingConfig } from '../thinking-config';
 import { models } from './modelMap';
 import {
   ApiFormat,

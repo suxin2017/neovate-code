@@ -4,7 +4,7 @@ import { JsonlLogger, RequestLogger } from './jsonl';
 import { LlmsContext } from './llmsContext';
 import { runLoop, type StreamResult, type ThinkingConfig } from './loop';
 import type { ImagePart, NormalizedMessage, UserContent } from './message';
-import { resolveModelWithContext } from './model';
+import { resolveModelWithContext } from './provider/model';
 import { OutputFormat } from './outputFormat';
 import { OutputStyleManager } from './outputStyle';
 import { generatePlanSystemPrompt } from './planSystemPrompt';

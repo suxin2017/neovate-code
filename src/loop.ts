@@ -14,7 +14,7 @@ import {
   type NormalizedMessage,
   type ToolUsePart,
 } from './message';
-import type { ModelInfo } from './model';
+import type { ModelInfo } from './provider/model';
 import { addPromptCache } from './promptCache';
 import { getThinkingConfig, type ReasoningEffort } from './thinking-config';
 import type {

@@ -1,5 +1,5 @@
 import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
-import type { ModelInfo } from './model';
+import type { ModelInfo } from './provider/model';
 
 export function addPromptCache(
   prompt: LanguageModelV3Prompt,

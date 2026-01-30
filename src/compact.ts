@@ -1,5 +1,5 @@
 import type { NormalizedMessage } from './message';
-import type { ModelInfo } from './model';
+import type { ModelInfo } from './provider/model';
 import { query } from './query';
 import { getLanguageInstruction } from './utils/language';
 import { normalizeMessagesForCompact } from './utils/messageNormalization';

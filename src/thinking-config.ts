@@ -1,4 +1,4 @@
-import type { ModelInfo } from './model';
+import type { ModelInfo } from './provider/model';
 
 export type ReasoningEffort = 'low' | 'medium' | 'high';
 

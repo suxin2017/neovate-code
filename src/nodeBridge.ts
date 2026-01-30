@@ -12,7 +12,7 @@ import {
   type Provider,
   type ProvidersMap,
   resolveModelWithContext,
-} from './model';
+} from './provider/model';
 import { OutputStyleManager } from './outputStyle';
 import { PluginHookType } from './plugin';
 import { Project } from './project';
