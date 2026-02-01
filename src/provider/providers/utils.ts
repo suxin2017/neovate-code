@@ -76,29 +76,20 @@ export type UtilsOnResponseHook = (res: {
   headers: Record<string, string>;
 }) => void;
 
-export const createModelCreator = (
-  modelId: string,
-  provider: Provider,
-  _options: {
-    globalConfigDir: string;
-    setGlobalConfig: (key: string, value: string, isGlobal: boolean) => void;
-    onRequest?: UtilsOnRequestHook;
-    onResponse?: UtilsOnResponseHook;
-  },
-): LanguageModelV3 => {
-  const baseURL = getProviderBaseURL(provider);
-  const apiKey = getProviderApiKey(provider);
-
-  const model = provider.models[modelId] as Model;
-  assert(model, `model ${modelId} of provider ${provider.id} not found`);
-
-  const apiFormat = model?.apiFormat || provider.apiFormat || ApiFormat.OpenAI;
+export function createCustomFetch(opts: {
+  provider: Provider;
+  onRequest?: UtilsOnRequestHook;
+  onResponse?: UtilsOnResponseHook;
+}) {
+  const { provider, onRequest, onResponse } = opts;
   const headers = {
     ...provider.headers,
     ...provider.options?.headers,
   };
 
-  const customFetch: any = async (url: string, options: any) => {
+  return async (url: RequestInfo | URL, options?: RequestInit) => {
+    const urlStr =
+      typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
     const f = (() => {
       const proxyUrl = provider.options?.httpProxy;
       if (proxyUrl) {
@@ -108,14 +99,14 @@ export const createModelCreator = (
       }
     })();
     const mergedHeaders = {
-      ...options.headers,
+      ...(options?.headers as Record<string, string>),
       ...headers,
     };
-    _options.onRequest?.({
-      url,
-      method: options.method || 'POST',
+    onRequest?.({
+      url: urlStr,
+      method: options?.method || 'POST',
       headers: mergedHeaders,
-      body: options.body,
+      body: options?.body,
     });
     const response = await f(url, {
       ...options,
@@ -125,13 +116,33 @@ export const createModelCreator = (
     response.headers.forEach((value, key) => {
       responseHeaders[key] = value;
     });
-    _options.onResponse?.({
-      url,
+    onResponse?.({
+      url: urlStr,
       status: response.status,
       headers: responseHeaders,
     });
     return response;
   };
+}
+
+export const createModelCreator = (
+  modelId: string,
+  provider: Provider,
+  _options: {
+    globalConfigDir: string;
+    setGlobalConfig: (key: string, value: string, isGlobal: boolean) => void;
+    customFetch?: typeof fetch;
+  },
+): LanguageModelV3 => {
+  const baseURL = getProviderBaseURL(provider);
+  const apiKey = getProviderApiKey(provider);
+
+  const model = provider.models[modelId] as Model;
+  assert(model, `model ${modelId} of provider ${provider.id} not found`);
+
+  const apiFormat = model?.apiFormat || provider.apiFormat || ApiFormat.OpenAI;
+
+  const customFetch = _options.customFetch ?? fetch;
   let m = (() => {
     const name = provider.id;
     switch (apiFormat) {

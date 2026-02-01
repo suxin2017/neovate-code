@@ -43,6 +43,7 @@ import type {
   UtilsOnRequestHook,
   UtilsOnResponseHook,
 } from './providers/utils';
+import { createCustomFetch } from './providers/utils';
 
 export type ModelInfo = {
   provider: Provider;
@@ -409,13 +410,17 @@ async function resolveModel(
     onRequest?: UtilsOnRequestHook;
     onResponse?: UtilsOnResponseHook;
   }) => {
+    const customFetch = createCustomFetch({
+      provider,
+      onRequest: hooks?.onRequest,
+      onResponse: hooks?.onResponse,
+    }) as typeof fetch;
     let m: LanguageModelV3 | Promise<LanguageModelV3> = (
       provider.createModel || createModelCreator
     )(modelId, provider, {
       globalConfigDir,
       setGlobalConfig,
-      onRequest: hooks?.onRequest,
-      onResponse: hooks?.onResponse,
+      customFetch,
     });
     if (isPromise(m)) {
       m = await m;

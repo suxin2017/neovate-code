@@ -68,8 +68,8 @@ export const githubCopilotProvider: Provider = {
         'Editor-Plugin-Version': 'copilot-chat/0.26.7',
         'Copilot-Integration-Id': 'vscode-chat',
       },
-      // fix Failed: OpenAI API key is missing
       apiKey: '',
+      fetch: options.customFetch as typeof fetch,
     }).chat(name);
   },
 };

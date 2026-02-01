@@ -24,6 +24,10 @@ type CreateModel = (
   options: {
     globalConfigDir: string;
     setGlobalConfig: (key: string, value: string, isGlobal: boolean) => void;
+    customFetch?: (
+      url: RequestInfo | URL,
+      options?: RequestInit,
+    ) => Promise<Response>;
   },
 ) => Promise<LanguageModelV3> | LanguageModelV3;
 

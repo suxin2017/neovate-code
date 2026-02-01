@@ -37,6 +37,7 @@ export const qwenProvider: Provider = {
       headers: {
         Authorization: `Bearer ${account.access_token}`,
       },
+      fetch: options.customFetch as typeof fetch,
     }).chatModel(name);
   },
 };

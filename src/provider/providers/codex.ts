@@ -67,6 +67,7 @@ export const codexProvider: Provider = {
     const CODEX_API_ENDPOINT =
       'https://chatgpt.com/backend-api/codex/responses';
     const accountId = extractAccountId(account.access_token);
+    const baseFetch = options.customFetch ?? fetch;
 
     return createOpenAI({
       apiKey: account.access_token,
@@ -107,7 +108,10 @@ export const codexProvider: Provider = {
           } catch {}
         }
 
-        return fetch(targetUrl, { ...modifiedInit, headers });
+        return baseFetch(targetUrl, {
+          ...modifiedInit,
+          headers: Object.fromEntries(headers.entries()),
+        });
       }) as typeof fetch,
     })(name);
   },
