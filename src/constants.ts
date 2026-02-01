@@ -62,6 +62,7 @@ export enum TOOL_NAMES {
   EDIT = 'edit',
   LS = 'ls',
   TASK = 'task',
+  SKILL = 'skill',
 }
 
 export const BASH_EVENTS = {
@@ -81,3 +82,21 @@ export enum AGENT_TYPE {
   GENERAL_PURPOSE = 'GeneralPurpose',
   NEOVATE_CODE_GUIDE = 'neovate-code-guide',
 }
+
+// ============================================
+// Compression Strategy Constants
+// ============================================
+
+// Compaction configuration
+export const COMPACTION_OUTPUT_TOKEN_MAX = 4096;
+export const COMPACTION_TRIGGER_RATIO = 0.7; // Trigger compression at 70% context usage
+
+// Pruning configuration
+export const PRUNE_PROTECT_THRESHOLD = 40_000; // Protect threshold: recent 40k tokens not pruned
+export const PRUNE_MINIMUM = 20_000; // Minimum prune amount: skip if below this
+export const PRUNE_PROTECT_TURNS = 2; // Protect recent 2 conversation turns
+// why we need to protect the following tools? when pruning, protect the following tools, avoid losing main context information when pruning
+export const PRUNE_PROTECTED_TOOLS = [TOOL_NAMES.SKILL, TOOL_NAMES.TASK]; // Protected tool list
+// Truncation configuration
+export const TRUNCATE_MAX_LINES = 2000; // Maximum lines
+export const TRUNCATE_MAX_BYTES = 50 * 1024; // Maximum bytes (50KB)

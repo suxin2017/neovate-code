@@ -8,7 +8,7 @@
 import type { ApprovalMode, McpServerConfig } from './config';
 import type { ResponseFormat, ThinkingConfig } from './loop';
 import type { ImagePart, Message, NormalizedMessage } from './message';
-import type { ModelInfo, ProvidersMap } from './model';
+import type { ModelInfo, ProvidersMap } from './provider/model';
 import type { ApprovalCategory, ToolUse } from './tool';
 
 // ============================================================================

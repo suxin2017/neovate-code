@@ -4,7 +4,7 @@ import { JsonlLogger, RequestLogger } from './jsonl';
 import { LlmsContext } from './llmsContext';
 import { runLoop, type StreamResult, type ThinkingConfig } from './loop';
 import type { ImagePart, NormalizedMessage, UserContent } from './message';
-import { resolveModelWithContext } from './model';
+import { resolveModelWithContext } from './provider/model';
 import { OutputFormat } from './outputFormat';
 import { OutputStyleManager } from './outputStyle';
 import { generatePlanSystemPrompt } from './planSystemPrompt';
@@ -297,6 +297,7 @@ export class Project {
       llmsContexts: llmsContext.messages,
       signal: opts.signal,
       autoCompact: this.context.config.autoCompact,
+      language: this.context.config.language,
       thinking: opts.thinking,
       temperature: this.context.config.temperature,
       onMessage: async (message) => {
@@ -332,6 +333,23 @@ export class Project {
       onChunk: async (chunk, requestId) => {
         requestLogger.logChunk(requestId, chunk);
         await opts.onChunk?.(chunk, requestId);
+      },
+      onRequest: (req) => {
+        requestLogger.logRequest({
+          requestId: req.requestId,
+          url: req.url,
+          method: req.method,
+          headers: req.headers,
+          body: req.body,
+        });
+      },
+      onResponse: (res) => {
+        requestLogger.logResponse({
+          requestId: res.requestId,
+          url: res.url,
+          status: res.status,
+          headers: res.headers,
+        });
       },
       onText: async (text) => {},
       onReasoning: async (text) => {},

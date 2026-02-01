@@ -1,9 +1,9 @@
 import type {
-  LanguageModelV2,
-  LanguageModelV2FunctionTool,
-  LanguageModelV2Message,
-  LanguageModelV2Prompt,
-  SharedV2Headers,
+  LanguageModelV3,
+  LanguageModelV3FunctionTool,
+  LanguageModelV3Message,
+  LanguageModelV3Prompt,
+  SharedV3Headers,
 } from '@ai-sdk/provider';
 import createDebug from 'debug';
 import { At } from './at';
@@ -14,9 +14,8 @@ import {
   type NormalizedMessage,
   type ToolUsePart,
 } from './message';
-import type { ModelInfo } from './model';
+import type { ModelInfo } from './provider/model';
 import { addPromptCache } from './promptCache';
-import { getThinkingConfig, type ReasoningEffort } from './thinking-config';
 import type {
   ToolApprovalResult,
   ToolParams,
@@ -76,16 +75,16 @@ export type LoopResult =
 
 type StreamResultBase = {
   requestId: string;
-  prompt: LanguageModelV2Prompt;
+  prompt: LanguageModelV3Prompt;
   model: ModelInfo;
-  tools: LanguageModelV2FunctionTool[];
+  tools: LanguageModelV3FunctionTool[];
 };
 export type StreamResult = StreamResultBase & {
   request?: {
     body?: unknown;
   };
   response?: {
-    headers?: SharedV2Headers;
+    headers?: SharedV3Headers;
     statusCode?: number;
     body?: unknown;
   };
@@ -102,9 +101,25 @@ export type ResponseFormat =
       name?: string;
       description?: string;
     };
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'max';
 export type ThinkingConfig = {
   effort: ReasoningEffort;
 };
+
+export type OnRequestHook = (req: {
+  requestId: string;
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body?: unknown;
+}) => void;
+
+export type OnResponseHook = (res: {
+  requestId: string;
+  url: string;
+  status: number;
+  headers: Record<string, string>;
+}) => void;
 
 type RunLoopOpts = {
   input: string | NormalizedMessage[];
@@ -117,6 +132,7 @@ type RunLoopOpts = {
   signal?: AbortSignal;
   llmsContexts?: string[];
   autoCompact?: boolean;
+  language?: string;
   thinking?: ThinkingConfig;
   temperature?: number;
   responseFormat?: ResponseFormat;
@@ -138,6 +154,8 @@ type RunLoopOpts = {
   }) => Promise<void>;
   onToolApprove?: (toolUse: ToolUse) => Promise<ToolApprovalResult>;
   onMessage?: OnMessage;
+  onRequest?: OnRequestHook;
+  onResponse?: OnResponseHook;
 };
 
 export async function runLoop(opts: RunLoopOpts): Promise<LoopResult> {
@@ -221,7 +239,7 @@ export async function runLoop(opts: RunLoopOpts): Promise<LoopResult> {
         };
       }
       if (opts.autoCompact) {
-        const compressed = await history.compress(opts.model);
+        const compressed = await history.compress(opts.model, opts.language);
         if (compressed.compressed) {
           debug('history compressed', compressed);
         }
@@ -231,18 +249,18 @@ export async function runLoop(opts: RunLoopOpts): Promise<LoopResult> {
       const systemPromptMessage = {
         role: 'system',
         content: opts.systemPrompt || '',
-      } as LanguageModelV2Message;
+      } as LanguageModelV3Message;
       const llmsContexts = opts.llmsContexts || [];
       const llmsContextMessages = llmsContexts.map((llmsContext) => {
         return {
           role: 'system',
           content: llmsContext,
-        } as LanguageModelV2Message;
+        } as LanguageModelV3Message;
       });
-      let prompt: LanguageModelV2Prompt = [
+      let prompt: LanguageModelV3Prompt = [
         systemPromptMessage,
         ...llmsContextMessages,
-        ...history.toLanguageV2Messages(),
+        ...history.toLanguageV3Messages(),
       ];
 
       if (shouldAtNormalize) {
@@ -266,13 +284,25 @@ export async function runLoop(opts: RunLoopOpts): Promise<LoopResult> {
       }> = [];
 
       const requestId = randomUUID();
-      const m: LanguageModelV2 = await opts.model._mCreator();
+      const m: LanguageModelV3 = await opts.model._mCreator({
+        onRequest: opts.onRequest
+          ? (req) => opts.onRequest!({ ...req, requestId })
+          : undefined,
+        onResponse: opts.onResponse
+          ? (res) => opts.onResponse!({ ...res, requestId })
+          : undefined,
+      });
       const tools = opts.tools.toLanguageV2Tools();
 
-      // Get thinking config based on model's reasoning capability
+      // Get thinking config from model variants
       let thinkingConfig: Record<string, any> | undefined = undefined;
       if (shouldThinking && opts.thinking) {
-        thinkingConfig = getThinkingConfig(opts.model, opts.thinking.effort);
+        thinkingConfig = {
+          providerOptions: {
+            [opts.model.provider.id]:
+              opts.model.model.variants?.[opts.thinking.effort],
+          },
+        };
         shouldThinking = false;
       }
 
