@@ -25,6 +25,7 @@ import {
   parseSlashCommand,
   toACPToolContent,
 } from './utils/messageAdapter';
+import { createACPPlugin } from './plugin';
 
 /**
  * Permission rule for a specific tool/category combination
@@ -49,6 +50,7 @@ export class ACPSession {
     private readonly id: string,
     private readonly messageBus: MessageBus,
     private readonly connection: AgentSideConnection,
+    private readonly clientFsCapabilities?: any, // FileSystemCapability from client
   ) {}
 
   /**
@@ -129,6 +131,25 @@ export class ACPSession {
         // Check if there's a stored permission rule for this tool/category
         const ruleKey = this.getPermissionRuleKey(toolUse.name, category);
         const existingRule = this.permissionRules.get(ruleKey);
+        const permissionResponse = await this.connection.requestPermission({
+          sessionId: this.id,
+          toolCall: {
+            toolCallId: toolUse.callId,
+            kind: mapApprovalCategory(category),
+          },
+          options: [
+            {
+              kind: 'allow_once',
+              name: 'Allow this change',
+              optionId: 'allow',
+            },
+            {
+              kind: 'reject_once',
+              name: 'Skip this change',
+              optionId: 'reject',
+            },
+          ],
+        });
 
         if (existingRule) {
           // Return cached decision without prompting
@@ -489,12 +510,13 @@ export class ACPSession {
   }
 
   /**
-   * Abort the current prompt
+   * Abort any pending prompt
    */
   async abort() {
     await this.messageBus.request('session.cancel', {
       cwd: this.defaultCwd,
       sessionId: this.id,
     });
+    this.pendingPrompt?.abort();
   }
 }
