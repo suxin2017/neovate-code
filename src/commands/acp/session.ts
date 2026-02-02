@@ -350,10 +350,12 @@ export class ACPSession {
           // Store tool call in history
           this.toolCallHistory.add(chunk.toolCallId, update);
 
-          this.connection.sessionUpdate({
-            sessionId: this.id,
-            update,
-          });
+          if (update.kind !== 'edit') {
+            this.connection.sessionUpdate({
+              sessionId: this.id,
+              update,
+            });
+          }
         }
 
         // Handle text deltas
