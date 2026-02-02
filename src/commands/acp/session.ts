@@ -13,6 +13,8 @@ import type { NormalizedMessage } from '../../message';
 import type { MessageBus } from '../../messageBus';
 import type { SlashCommand } from '../../slash-commands/types';
 import type { ApprovalCategory, ToolUse } from '../../tool';
+import { safeParseJson } from '../../utils/safeParseJson';
+import { ToolCallHistory } from './toolCallHistory';
 import {
   extractToolResultParts,
   fromACP,
@@ -21,7 +23,6 @@ import {
   isSlashCommand,
   mapApprovalCategory,
   parseSlashCommand,
-  safeParseJson,
   toACPToolContent,
 } from './utils/messageAdapter';
 
@@ -41,6 +42,8 @@ export class ACPSession {
   private readonly defaultCwd: string = process.cwd();
   // Store permission rules: key is `${toolName}:${category}`
   private permissionRules: Map<string, PermissionRule> = new Map();
+  // Store tool call history
+  private toolCallHistory: ToolCallHistory = new ToolCallHistory(100);
 
   constructor(
     private readonly id: string,
@@ -132,12 +135,13 @@ export class ACPSession {
           return { approved: existingRule.decision === 'allow' };
         }
         try {
+          const targetUpdate = this.toolCallHistory.get(toolUse.callId);
           const permissionResponse = await this.connection.requestPermission({
             sessionId: this.id,
             toolCall: {
+              title: targetUpdate?.title ?? toolUse.name,
               toolCallId: toolUse.callId,
-              kind: mapApprovalCategory(category),
-              status: 'pending',
+              content: targetUpdate?.content,
             },
             options: [
               {
@@ -315,9 +319,26 @@ export class ACPSession {
           } else if (chunk.toolName === 'write') {
             update.title = `write ${inputParams?.file_path ?? ''}`;
             update.kind = 'edit';
+            update.content = [
+              {
+                type: 'content',
+                content: {
+                  type: 'text',
+                  text: inputParams.content,
+                },
+              },
+            ];
           } else if (chunk.toolName === 'edit') {
             update.title = `edit ${inputParams?.file_path ?? ''}`;
             update.kind = 'edit';
+            update.content = [
+              {
+                type: 'diff',
+                newText: inputParams.new_string,
+                oldText: inputParams.old_string,
+                path: inputParams.file_path,
+              },
+            ];
           } else if (chunk.toolName === 'glob') {
             update.title = `glob ${inputParams?.pattern ?? ''}`;
             update.kind = 'search';
@@ -325,6 +346,9 @@ export class ACPSession {
             update.title = `grep ${inputParams?.pattern ?? ''} ${inputParams?.search_path ?? ''}`;
             update.kind = 'search';
           }
+
+          // Store tool call in history
+          this.toolCallHistory.add(chunk.toolCallId, update);
 
           this.connection.sessionUpdate({
             sessionId: this.id,
