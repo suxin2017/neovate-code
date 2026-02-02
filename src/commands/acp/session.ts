@@ -9,10 +9,10 @@ import type {
   SessionUpdate,
 } from '@agentclientprotocol/sdk';
 import type { LanguageModelV2StreamPart } from '@ai-sdk/provider';
-import type { MessageBus } from '../../messageBus';
 import type { NormalizedMessage } from '../../message';
-import type { ApprovalCategory, ToolUse } from '../../tool';
+import type { MessageBus } from '../../messageBus';
 import type { SlashCommand } from '../../slash-commands/types';
+import type { ApprovalCategory, ToolUse } from '../../tool';
 import {
   extractToolResultParts,
   fromACP,
@@ -26,11 +26,21 @@ import {
 } from './utils/messageAdapter';
 
 /**
+ * Permission rule for a specific tool/category combination
+ */
+type PermissionRule = {
+  decision: 'allow' | 'reject';
+  timestamp: number;
+};
+
+/**
  * ACPSession wraps a Neovate session and handles ACP protocol events
  */
 export class ACPSession {
   private pendingPrompt: AbortController | null = null;
   private readonly defaultCwd: string = process.cwd();
+  // Store permission rules: key is `${toolName}:${category}`
+  private permissionRules: Map<string, PermissionRule> = new Map();
 
   constructor(
     private readonly id: string,
@@ -95,6 +105,16 @@ export class ACPSession {
   }
 
   /**
+   * Get permission rule key for caching decisions
+   */
+  private getPermissionRuleKey(
+    toolName: string,
+    category?: ApprovalCategory,
+  ): string {
+    return `${toolName}:${category || 'default'}`;
+  }
+
+  /**
    * Initialize permission approval handler
    */
   private async initPermission() {
@@ -103,40 +123,83 @@ export class ACPSession {
       async (data: { toolUse: ToolUse; category?: ApprovalCategory }) => {
         const { toolUse, category } = data;
 
-        const permissionResponse = await this.connection.requestPermission({
-          sessionId: this.id,
-          toolCall: {
-            toolCallId: toolUse.callId,
-            kind: mapApprovalCategory(category),
-            status: 'pending',
-          },
-          options: [
-            {
-              kind: 'allow_once',
-              name: 'Allow this change',
-              optionId: 'allow',
-            },
-            {
-              kind: 'reject_once',
-              name: 'Skip this change',
-              optionId: 'reject',
-            },
-          ],
-        });
+        // Check if there's a stored permission rule for this tool/category
+        const ruleKey = this.getPermissionRuleKey(toolUse.name, category);
+        const existingRule = this.permissionRules.get(ruleKey);
 
-        if (permissionResponse.outcome.outcome === 'cancelled') {
-          return { approved: false };
+        if (existingRule) {
+          // Return cached decision without prompting
+          return { approved: existingRule.decision === 'allow' };
         }
+        try {
+          const permissionResponse = await this.connection.requestPermission({
+            sessionId: this.id,
+            toolCall: {
+              toolCallId: toolUse.callId,
+              kind: mapApprovalCategory(category),
+              status: 'pending',
+            },
+            options: [
+              {
+                kind: 'allow_once',
+                name: 'Allow once',
+                optionId: 'allow_once',
+              },
+              {
+                kind: 'allow_always',
+                name: 'Always allow',
+                optionId: 'allow_always',
+              },
+              {
+                kind: 'reject_once',
+                name: 'Reject once',
+                optionId: 'reject_once',
+              },
+              {
+                kind: 'reject_always',
+                name: 'Always reject',
+                optionId: 'reject_always',
+              },
+            ],
+          });
 
-        switch (permissionResponse.outcome.optionId) {
-          case 'allow':
-            return { approved: true };
-          case 'reject':
+          if (permissionResponse.outcome.outcome === 'cancelled') {
             return { approved: false };
-          default:
-            throw new Error(
-              `Unexpected permission outcome ${permissionResponse.outcome}`,
-            );
+          }
+
+          const optionId = permissionResponse.outcome.optionId;
+
+          // Handle the different option types
+          switch (optionId) {
+            case 'allow_once':
+              return { approved: true };
+
+            case 'allow_always':
+              // Store the rule for future use
+              this.permissionRules.set(ruleKey, {
+                decision: 'allow',
+                timestamp: Date.now(),
+              });
+              return { approved: true };
+
+            case 'reject_once':
+              return { approved: false };
+
+            case 'reject_always':
+              // Store the rule for future use
+              this.permissionRules.set(ruleKey, {
+                decision: 'reject',
+                timestamp: Date.now(),
+              });
+              return { approved: false };
+
+            default:
+              throw new Error(
+                `Unexpected permission outcome ${permissionResponse.outcome.optionId}`,
+              );
+          }
+        } catch (e) {
+          console.log(e);
         }
       },
     );
