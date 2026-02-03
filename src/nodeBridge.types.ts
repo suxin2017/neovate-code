@@ -259,6 +259,7 @@ type ModelsListOutput = {
     groupedModels: Array<{
       provider: string;
       providerId: string;
+      isActive: boolean;
       models: Array<{
         name: string;
         modelId: string;

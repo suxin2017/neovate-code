@@ -13,6 +13,7 @@ interface ModelSelectProps {
 interface GroupedData {
   provider: string;
   providerId: string;
+  isActive?: boolean;
   models: { name: string; modelId: string; value: string }[];
 }
 
@@ -60,7 +61,8 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     { name: string; modelId: string; value: string }
   >();
   const providerLookup = new Map<string, string>();
-  for (const group of groupedModels) {
+  const activeGroupedModels = groupedModels.filter((g) => g.isActive !== false);
+  for (const group of activeGroupedModels) {
     for (const model of group.models) {
       allModelsMap.set(model.value, model);
       providerLookup.set(model.value, group.provider);
@@ -89,8 +91,8 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
 
   const displayGroups =
     recentGroup && recentGroup.models.length > 0
-      ? [recentGroup, ...groupedModels]
-      : groupedModels;
+      ? [recentGroup, ...activeGroupedModels]
+      : activeGroupedModels;
 
   return (
     <Box

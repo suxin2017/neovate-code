@@ -29,12 +29,19 @@ export function registerModelsHandlers(
           }
         : null;
     const nullModels: { providerId: string; modelId: string }[] = [];
+    const isProviderActive = (provider: Provider): boolean => {
+      if (provider.options?.apiKey) return true;
+      const envs = provider.env || [];
+      return envs.some((envName) => !!process.env[envName]);
+    };
     const groupedModels = Object.values(
       providers as Record<string, Provider>,
     ).map((provider) => {
+      const isActive = isProviderActive(provider);
       return {
         provider: provider.name,
         providerId: provider.id,
+        isActive,
         models: Object.entries(provider.models || {})
           .filter(([modelId, model]) => {
             if (model == null) {
