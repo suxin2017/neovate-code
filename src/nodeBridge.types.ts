@@ -72,6 +72,7 @@ type GlobalDataRecentModelsGetOutput = {
   success: boolean;
   data: {
     recentModels: string[];
+    thinkingLevel: string | undefined;
   };
 };
 
@@ -278,6 +279,7 @@ type ModelsListOutput = {
       modelId: string;
     }>;
     recentModels: string[];
+    thinkingLevel: string | undefined;
   };
 };
 
@@ -632,6 +634,7 @@ type SessionInitializeOutput = {
     sessionSummary: string | undefined;
     pastedTextMap: Record<string, string>;
     pastedImageMap: Record<string, string>;
+    thinkingLevel: string | undefined;
   };
 };
 

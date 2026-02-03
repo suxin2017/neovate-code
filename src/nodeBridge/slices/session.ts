@@ -44,6 +44,28 @@ export function registerSessionHandlers(
       context,
     );
 
+    let thinkingLevel: string | undefined = undefined;
+    const variants = model?.model.variants;
+    if (variants && Object.keys(variants).length > 0) {
+      const availableEfforts = Object.keys(variants);
+      const configuredLevel = context.config.thinkingLevel;
+
+      let targetLevel: string | undefined = configuredLevel;
+      if (configuredLevel === 'maxOrXhigh') {
+        targetLevel = availableEfforts.includes('xhigh')
+          ? 'xhigh'
+          : availableEfforts.includes('max')
+            ? 'max'
+            : undefined;
+      }
+
+      if (targetLevel && availableEfforts.includes(targetLevel)) {
+        thinkingLevel = targetLevel;
+      } else {
+        thinkingLevel = availableEfforts[0];
+      }
+    }
+
     let sessionSummary: string | undefined;
     let pastedTextMap: Record<string, string> = {};
     let pastedImageMap: Record<string, string> = {};
@@ -74,6 +96,7 @@ export function registerSessionHandlers(
         sessionSummary,
         pastedTextMap,
         pastedImageMap,
+        thinkingLevel,
       },
     };
   });

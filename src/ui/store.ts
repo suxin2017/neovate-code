@@ -375,13 +375,9 @@ export const useAppStore = create<AppStore>()(
           pastedTextMap: response.data.pastedTextMap || {},
           pastedImageMap: response.data.pastedImageMap || {},
           userName: getUsername() ?? 'user',
-          thinking: (() => {
-            const variants = response.data.model?.model.variants;
-            if (variants && Object.keys(variants).length > 0) {
-              return { effort: Object.keys(variants)[0] as any };
-            }
-            return undefined;
-          })(),
+          thinking: response.data.thinkingLevel
+            ? { effort: response.data.thinkingLevel as any }
+            : undefined,
           // theme: 'light',
         });
 
@@ -1050,14 +1046,9 @@ export const useAppStore = create<AppStore>()(
           set({
             model: currentModel,
             modelContextLimit: currentModel?.model.limit.context || 0,
-            thinking: (() => {
-              const variants = currentModel?.model.variants;
-              if (variants && Object.keys(variants).length > 0) {
-                return { effort: Object.keys(variants)[0] as any };
-              }
-              return undefined;
-            })(),
-            // Clear initializeModelError after successfully changing model
+            thinking: modelsResponse.data.thinkingLevel
+              ? { effort: modelsResponse.data.thinkingLevel as any }
+              : undefined,
             initializeModelError: null,
           });
         }

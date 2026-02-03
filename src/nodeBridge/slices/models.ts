@@ -28,6 +28,29 @@ export function registerModelsHandlers(
             modelContextLimit: model.model.limit.context,
           }
         : null;
+
+    let thinkingLevel: string | undefined = undefined;
+    const variants = currentModel?.model.variants;
+    if (variants && Object.keys(variants).length > 0) {
+      const availableEfforts = Object.keys(variants);
+      const configuredLevel = context.config.thinkingLevel;
+
+      let targetLevel: string | undefined = configuredLevel;
+      if (configuredLevel === 'maxOrXhigh') {
+        targetLevel = availableEfforts.includes('xhigh')
+          ? 'xhigh'
+          : availableEfforts.includes('max')
+            ? 'max'
+            : undefined;
+      }
+
+      if (targetLevel && availableEfforts.includes(targetLevel)) {
+        thinkingLevel = targetLevel;
+      } else {
+        thinkingLevel = availableEfforts[0];
+      }
+    }
+
     const nullModels: { providerId: string; modelId: string }[] = [];
     const isProviderActive = (provider: Provider): boolean => {
       if (provider.options?.apiKey) return true;
@@ -65,6 +88,7 @@ export function registerModelsHandlers(
         currentModelInfo,
         nullModels,
         recentModels: context.globalData.getRecentModels(),
+        thinkingLevel,
       },
     };
   });

@@ -106,6 +106,12 @@ export type Config = {
    * - object: extended notification config (reserved for future use, e.g., url)
    */
   notification?: boolean | string;
+  /**
+   * Default thinking/reasoning effort level for models that support it.
+   * - 'low', 'medium', 'high', 'max', 'xhigh': Use specified level if supported
+   * - 'maxOrXhigh': Prefer xhigh if available, otherwise max
+   */
+  thinkingLevel?: 'low' | 'medium' | 'high' | 'max' | 'xhigh' | 'maxOrXhigh';
 };
 
 const DEFAULT_CONFIG: Partial<Config> = {
@@ -145,6 +151,7 @@ const VALID_CONFIG_KEYS = [
   'agent',
   'notification',
   'skills',
+  'thinkingLevel',
 ];
 const ARRAY_CONFIG_KEYS = ['plugins', 'skills'];
 const OBJECT_CONFIG_KEYS = [
