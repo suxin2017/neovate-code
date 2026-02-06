@@ -8,11 +8,11 @@ export const zhipuaiCodingPlanProvider: Provider = {
   api: 'https://open.bigmodel.cn/api/coding/paas/v4',
   doc: 'https://docs.bigmodel.cn/cn/coding-plan/overview',
   models: {
-    'glm-4.6': {},
     'glm-4.5v': {},
     'glm-4.5-air': {},
     'glm-4.5': {},
     'glm-4.5-flash': {},
+    'glm-4.6': {},
     'glm-4.6v': {},
     'glm-4.7': {},
   },
