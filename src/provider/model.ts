@@ -107,12 +107,6 @@ function normalizeModel(
     actualModel = models[splitedModelId] || {};
     extraInfo = { ...model };
   }
-  if (!actualModel.limit) {
-    actualModel.limit = {
-      context: 256000,
-      output: 256000,
-    };
-  }
   const m = {
     ...actualModel,
     ...extraInfo,
@@ -120,6 +114,15 @@ function normalizeModel(
   if (!m.variants) {
     const variants = transformVariants(m, provider);
     m.variants = variants;
+  }
+  if (!m.limit) {
+    m.limit = {
+      context: 256000,
+      output: 256000,
+    };
+  }
+  if (!m.name) {
+    m.name = modelId;
   }
   return m;
 }
