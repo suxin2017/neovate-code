@@ -310,6 +310,23 @@ type ModelsTestOutput =
       error: string;
     };
 
+type ModelsGetVariantsInput = {
+  cwd?: string;
+  model: string;
+};
+type ModelsGetVariantsOutput =
+  | {
+      success: true;
+      data: {
+        model: string;
+        variants: Record<string, any>;
+      };
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
 // ============================================================================
 // Output Styles Handlers
 // ============================================================================
@@ -1371,6 +1388,10 @@ export type HandlerMap = {
   // Models handlers
   'models.list': { input: ModelsListInput; output: ModelsListOutput };
   'models.test': { input: ModelsTestInput; output: ModelsTestOutput };
+  'models.getVariants': {
+    input: ModelsGetVariantsInput;
+    output: ModelsGetVariantsOutput;
+  };
 
   // Output styles handlers
   'outputStyles.list': {

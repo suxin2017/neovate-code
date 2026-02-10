@@ -162,4 +162,31 @@ export function registerModelsHandlers(
       };
     }
   });
+
+  messageBus.registerHandler('models.getVariants', async (data) => {
+    const { model: modelStr } = data;
+    const cwd = data.cwd || process.cwd();
+    try {
+      const context = await getContext(cwd);
+      const { model, error } = await resolveModelWithContext(modelStr, context);
+      if (error || !model) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Model not found',
+        };
+      }
+      return {
+        success: true,
+        data: {
+          model: modelStr,
+          variants: model.model.variants || {},
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to get model variants',
+      };
+    }
+  });
 }

@@ -139,6 +139,7 @@ const HANDLERS: Record<string, string> = {
   // Models
   'models.list': 'List all available models grouped by provider',
   'models.test': 'Test a specific model with a simple request',
+  'models.getVariants': 'Get variants for a specific model',
 
   // Config
   'config.list': 'List all configuration',
