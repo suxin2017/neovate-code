@@ -415,6 +415,12 @@ export async function runLoop(opts: RunLoopOpts): Promise<LoopResult> {
           const nextRetryCount = retryCount + 1;
           const retryDelayMs = 1000 * Math.pow(2, nextRetryCount - 1);
           const retryStartTime = Date.now();
+          let isRetryable = error.isRetryable;
+          const data = error.data || error.message;
+          // Antigravity: Requested entity was not found.
+          if (data === 'Not Found') {
+            isRetryable = true;
+          }
           opts.onStreamResult?.({
             requestId,
             prompt,
@@ -427,7 +433,7 @@ export async function runLoop(opts: RunLoopOpts): Promise<LoopResult> {
             },
             error: {
               data: error.data || error.message,
-              isRetryable: error.isRetryable,
+              isRetryable,
               retryAttempt: retryCount,
               maxRetries: errorRetryTurns,
               retryDelayMs,
@@ -435,7 +441,7 @@ export async function runLoop(opts: RunLoopOpts): Promise<LoopResult> {
             },
           });
 
-          if (error.isRetryable && retryCount < errorRetryTurns) {
+          if (isRetryable && retryCount < errorRetryTurns) {
             retryCount++;
             try {
               await exponentialBackoffWithCancellation(retryCount, opts.signal);
