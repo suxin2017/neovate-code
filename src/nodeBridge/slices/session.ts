@@ -228,6 +228,7 @@ export function registerSessionHandlers(
       attachments,
       parentUuid,
       planMode,
+      thinking,
     } = data;
     const context = await getContext(cwd);
 
@@ -306,7 +307,7 @@ export function registerSessionHandlers(
       model: resolvedModel,
       parentUuid,
       prependContent,
-      thinking: data.thinking,
+      thinking,
       onMessage: async (opts) => {
         await messageBus.emitEvent('message', {
           message: opts.message,
