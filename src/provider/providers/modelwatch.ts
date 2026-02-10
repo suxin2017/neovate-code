@@ -20,6 +20,7 @@ export const modelwatchProvider: Provider = {
     'claude-4-5-sonnet': {},
     'claude-haiku-4-5': {},
     'claude-opus-4-5': {},
+    'claude-opus-4-6': {},
     'gpt-5.1': {
       apiFormat: ApiFormat.Responses,
     },
