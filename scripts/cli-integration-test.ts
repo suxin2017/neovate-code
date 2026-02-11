@@ -12,7 +12,7 @@ function parseArgs(): ParsedArgs {
   const args = Bun.argv.slice(2);
   const result: ParsedArgs = {
     help: false,
-    model: 'modelwatch/glm-4.7',
+    model: 'iflow/qwen3-coder-plus',
     prompt: 'hello',
   };
 
