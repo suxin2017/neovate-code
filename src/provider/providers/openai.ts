@@ -37,7 +37,8 @@ export const openaiProvider: Provider = {
     'gpt-5.2': {},
     'gpt-5.2-pro': {},
     'gpt-5.2-codex': {},
-    // 'gpt-5.3-codex': {},
+    'gpt-5.3-codex': {},
+    'gpt-5.3-codex-spark': {},
   },
   apiFormat: ApiFormat.Responses,
 };

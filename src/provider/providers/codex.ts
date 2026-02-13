@@ -45,6 +45,7 @@ export const codexProvider: Provider = {
     'gpt-5.2': {},
     'gpt-5.2-codex': {},
     'gpt-5.3-codex': {},
+    'gpt-5.3-codex-spark': {},
   },
   async createModel(name, provider, options) {
     const apiKey = provider.options?.apiKey;
