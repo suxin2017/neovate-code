@@ -50,6 +50,12 @@ interface OAuthState {
   oauthSessionId: string;
 }
 
+const providerNameMap: Record<string, string> = {
+  'github-copilot': 'GitHub Copilot',
+  qwen: 'Qwen',
+  codex: 'Codex',
+};
+
 const OAuthAuthorizationUI: React.FC<OAuthAuthorizationUIProps> = ({
   title,
   authUrl,
@@ -342,6 +348,7 @@ export const LoginSelect: React.FC<LoginSelectProps> = ({
       });
 
       if (result.success) {
+        await bridge.request('project.clearContext', { cwd });
         onExit(
           `✓ Successfully configured API key for ${selectedProvider.name}`,
         );
@@ -397,10 +404,9 @@ export const LoginSelect: React.FC<LoginSelectProps> = ({
           if (status === 'completed') {
             clearInterval(pollInterval);
             if (!cancelled) {
+              await bridge.request('project.clearContext', { cwd });
               const providerName =
-                oauthState.providerId === 'github-copilot'
-                  ? 'GitHub Copilot'
-                  : 'Antigravity';
+                providerNameMap[oauthState.providerId] || oauthState.providerId;
               onExit(
                 `✓ ${providerName} authorization successful!${user ? ` Logged in as ${user}` : ''}`,
               );
@@ -464,14 +470,7 @@ export const LoginSelect: React.FC<LoginSelectProps> = ({
   }
 
   if (step === 'oauth-auth' && oauthState) {
-    const title =
-      oauthState.providerId === 'github-copilot'
-        ? 'GitHub Copilot Authorization'
-        : oauthState.providerId === 'qwen'
-          ? 'Qwen Authorization'
-          : oauthState.providerId === 'codex'
-            ? 'Codex Authorization'
-            : 'Antigravity Authorization';
+    const title = `${providerNameMap[oauthState.providerId] || oauthState.providerId} Authorization`;
     const waitingMessage =
       oauthState.providerId === 'qwen' || oauthState.providerId === 'codex'
         ? 'Waiting for authorization in browser...'
