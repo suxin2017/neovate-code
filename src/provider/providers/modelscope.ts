@@ -13,6 +13,7 @@ export const modelscopeProvider: Provider = {
     'ZhipuAI/GLM-4.5': {},
     'ZhipuAI/GLM-4.5V': {},
     'ZhipuAI/GLM-4.6': {},
+    'ZhipuAI/GLM-5': {},
     'deepseek-ai/DeepSeek-V3.2': {},
     'deepseek-ai/DeepSeek-V3.2-Speciale': {},
   },
