@@ -33,6 +33,7 @@ export const iflowProvider: Provider = {
     'deepseek-r1': {},
     'glm-4.6': {},
     'glm-4.7': {},
+    'glm-5': {},
     'minimax-m2.1': {},
     'qwen3-max': {},
     'kimi-k2.5': {},
