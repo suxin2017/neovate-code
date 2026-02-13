@@ -25,6 +25,7 @@ export const zenmuxProvider: Provider = {
     'deepseek/deepseek-chat': {},
     'deepseek/deepseek-reasoner': {},
     'moonshotai/kimi-k2.5': {},
+    'minimax/minimax-m2.5': {},
   },
   headers: {
     'X-Title': 'Neovate Code',

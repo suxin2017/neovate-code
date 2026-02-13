@@ -62,5 +62,6 @@ export const openrouterProvider: Provider = {
     'z-ai/glm-4.7': {},
     'z-ai/glm-5': {},
     'minimax/minimax-m2': {},
+    'minimax/minimax-m2.5': {},
   },
 };
